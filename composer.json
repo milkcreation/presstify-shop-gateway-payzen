@@ -22,7 +22,7 @@
     }
   ],
   "require": {
-    "presstify-plugin/shop": "^1.0",
+    "presstify-plugins/shop": "^1.0",
     "presstify/framework": "^1.4"
   },
   "autoload": {
