@@ -15,6 +15,8 @@
     </form>
 </div>
 
+<?php
+/*
 <script type="text/javascript">
     function payzen_submit_form() { document.getElementById('submit_payzen_payment_form').click(); }
     if (window.addEventListener) { // for all major browsers, except IE 8 and earlier
@@ -23,3 +25,5 @@
         window.attachEvent('onload', payzen_submit_form);
     }
 </script>
+ */
+?>
