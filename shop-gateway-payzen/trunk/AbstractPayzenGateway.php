@@ -5,6 +5,7 @@ namespace tiFy\Plugins\ShopGatewayPayzen;
 use \PayzenApi;
 use \PayzenRequest;
 use \PayzenResponse;
+use tiFy\Core\Route\Route;
 use tiFy\Plugins\Shop\Gateways\AbstractGateway;
 use tiFy\Plugins\Shop\Orders\OrderInterface;
 use tiFy\Plugins\Shop\Shop;
@@ -39,12 +40,34 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         require_once $this->appDirname() . '/Api/PayzenRequest.php';
         $this->request = new PayzenRequest();
 
-        $this->appAddAction(
-            'wp_loaded',
-            function () {
-                $this->checkNotifyResponse();
-            }
+        $this->appAddAction('tify_route_register');
+    }
+
+    /**
+     * Déclaration de la route de traitement de la commande par le serveur de paiement
+     *
+     * @return void
+     */
+    final public function tify_route_register()
+    {
+        Route::register('tify-shop-gateway-payzen',
+            [
+                'path' => '/tify-shop-api/gateway-payzen',
+                'cb' => function () {
+                    $this->appAddAction('wp_loaded', 'checkNotifyResponse');
+                }
+            ]
         );
+    }
+
+    /**
+     * Liste des statuts de commande associés au paiement réussi
+     *
+     * @return array
+     */
+    public function orderSuccessStatuses()
+    {
+        return ['order-on-hold', 'order-processing', 'order-completed'];
     }
 
     /**
@@ -69,18 +92,36 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         $from_server = $this->response->get('hash') != null;
 
         if ($from_server) :
-            $this->appLog()->error('Response received from PayZen server URL: ' . print_r($raw_response, true));
+            $this->log(
+                sprintf(
+                    __('Réponse du processus de traitement côté serveur : %s', 'tify'), print_r($raw_response, true)
+                ),
+                'info'
+            );
         endif;
 
         if (! $this->response->isAuthentified()) :
-            $this->appLog()->error('Received invalid response from PayZen: authentication failed.');
+            $this->log(
+                __('La réponse reçue depuis Payzen est invalide: Authentification en échec', 'tify'),
+                'error'
+            );
 
             if ($from_server) :
-                $this->appLog()->error('SERVER URL PROCESS END');
+                $this->log(
+                    __('Fin du processus de traitement côté serveur', 'tify'),
+                    'info'
+                );
                 die($this->response->getOutputForPlatform('auth_fail'));
             else :
-                $this->appLog()->error('RETURN URL PROCESS END');
-                wp_die(sprintf(__('%s response authentication failure.', 'woo-payzen-payment'), 'PayZen'));
+                $this->log(
+                    __('Fin du processus de traitement côté client', 'tify'),
+                    'info'
+                );
+                wp_die(
+                    __('La réponse reçue depuis Payzen est invalide: Authentification en échec', 'tify'),
+                    __('Payzen - Echec d\'authentification', 'tify'),
+                    500
+                );
             endif;
         else :
             header('HTTP/1.1 200 OK');
@@ -90,7 +131,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     }
 
     /**
-     * Traitement de la réponse suite au paiment.
+     * Traitement de la réponse suite à l'issue du paiement sur la plateforme Payzen.
      * @internal Mise à jour de la commande, expédition de mail ...
      *
      * @return void
@@ -102,41 +143,52 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         $order_id = (int) $this->response->get('order_id');
         $from_server = $this->response->get('hash') != null;
 
-
         $order = $this->orders()->get($order_id);
 
         if ($order->getOrderKey() !== $this->response->get('order_info')) :
-            $this->appLog()->error(
+            $this->log(
                 sprintf(
                     __('ERREUR: La commande n°%s n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant reçu par le paiement.', 'tify'),
                     $order->getId()
-                )
+                ),
+                'error'
             );
 
             if ($from_server) :
-                $this->appLog()->error(__('Fin de processus côté url de serveur', 'tify'));
+                $this->log(
+                    __('Fin du processus de traitement côté serveur', 'tify'),
+                    'info'
+                );
+
                 die($this->response->getOutputForPlatform('order_not_found'));
             else :
-                $this->appLog()->error(__('Fin de processus côté url de retour', 'tify'));
+                $this->log(
+                    __('Fin du processus de traitement côté client', 'tify'),
+                    'info'
+                );
+
                 wp_die(
-                    sprintf(__('ERREUR: La commande n°%s n\'a pas été trouvée.', 'tify'), $order->getId()),
-                    __('Commande non trouvée', 'tify'),
+                    sprintf(
+                        __('ERREUR: La commande n°%s n\'a pas été trouvée.', 'tify'),
+                        $order->getId()
+                    ),
+                    __('Payzen - Commande non trouvée', 'tify'),
                     500
                 );
             endif;
         endif;
 
         if ($this->get('ctx_mode') === 'TEST') :
-            $msg  = __('<p><u>GOING INTO PRODUCTION</u></p>You want to know how to put your shop into production mode, please go to this URL: ', 'woo-payzen-payment');
+            $msg  = __('<p><u>PASSAGE EN PRODUCTION</u></p>Si vous souhaitez obtenir des informations pour régler votre boutique en mode production, veuillez consulter l\'url suivante: ', 'tify');
             $msg .= '<a href="https://secure.payzen.eu/html/faq/prod" target="_blank">https://secure.payzen.eu/html/faq/prod</a>';
 
             $this->notices()->add($msg);
         endif;
 
-        // checkout payment URL to allow re-order
-        //$error_url = $woocommerce->cart->get_checkout_url();
+        // Url de commande pour permettre, en cas d'échec, de soumettre à nouveau le paiement.
+        $error_url = $this->functions()->url()->checkoutPage();
 
-        if (true === true) :
+        if ($this->isNewOrder($order, $this->response->get('trans_id'))) :
             \delete_post_meta($order->getId(), 'Transaction ID');
             \delete_post_meta($order->getId(), 'Card number');
             \delete_post_meta($order->getId(), 'Payment mean');
@@ -154,107 +206,219 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
             $note = $this->response->getCompleteMessage("\n");
 
-            if ($this->response->isAcceptedPayment()) {
-                $this->appLog()->info(
+            if ($this->response->isAcceptedPayment()) :
+                $this->log(
                     sprintf(
                         __('Paiement réussi, la commande n°%d va être enregistrée', 'tify'),
                         $order_id
-                    )
+                    ),
+                    'info'
                 );
 
                 $note .= "\n";
                 $note .= sprintf(__('Transaction %s.', 'tify'), $this->response->get('trans_id'));
                 $order->addNote($note);
-                exit;
                 $order->paymentComplete();
 
-                if ($from_server) {
-                    $this->log('Payment completed successfully by server URL call.');
-                    $this->log('SERVER URL PROCESS END');
+                if ($from_server) :
+                    $this->log(
+                        __('Le processus de paiement lancé par le serveur, s\'est terminée avec succès.', 'tify'),
+                        'info'
+                    );
+                    $this->log(
+                        __('Fin du processus de traitement côté serveur', 'tify'),
+                        'info'
+                    );
 
                     die ($this->response->getOutputForPlatform('payment_ok'));
-                } else {
-                    $this->log('Warning ! IPN URL call has not worked. Payment completed by return URL call.');
+                else :
+                    $this->log(
+                        __('Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé avec succès, grâce à un traitement de l\'url côté client. Utilisez l\'url de notification instantanée', 'tify'),
+                        'warning'
+                    );
 
-                    if ($this->testmode) {
-                        $ipn_url_warn = sprintf(__('The automatic notification (peer to peer connection between the payment platform and your shopping cart solution) hasn\'t worked. Have you correctly set up the notification URL in the %s Back Office ?', 'woo-payzen-payment'), 'PayZen');
+                    if ($this->get('ctx_mode') === 'TEST') :
+                        $ipn_url_warn = sprintf(
+                            __('La notification automatique (échange directe entre la plateforme de paiement et votre boutique) ne semble pas être opérante. Veuillez-vous assurer vous de la configuration depuis l\'url suivante %s', 'tify'),
+                            'https://secure.payzen.eu/vads-merchant/'
+                        );
                         $ipn_url_warn .= '<br />';
-                        $ipn_url_warn .= __('For understanding the problem, please read the documentation of the module : <br />&nbsp;&nbsp;&nbsp;- Chapter &laquo;To read carefully before going further&raquo;<br />&nbsp;&nbsp;&nbsp;- Chapter &laquo;Notification URL settings&raquo;', 'woo-payzen-payment');
+                        $ipn_url_warn .= sprintf(
+                            __('Pour comprendre le problème veuillez consulter la documentation sur le site de la solution :%s', 'tify'),
+                            '<a href="https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html" target="_blank">' .
+                                'https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html' .
+                            '</a>'
+                        );
 
-                        $this->add_notice($ipn_url_warn, 'error');
-                    }
+                        $this->notices()->add($ipn_url_warn, 'error');
+                    endif;
 
-                    $this->log('RETURN URL PROCESS END');
-                    wp_redirect($this->get_return_url($order));
+                    $this->log(
+                        __('Fin du processus de traitement côté client', 'tify'),
+                        'info'
+                    );
+
+                    \wp_redirect($this->getReturnUrl($order));
                     die();
-                }
-            } else {
-                if (! $this->response->isCancelledPayment()) {
+                endif;
+            else :
+                if (! $this->response->isCancelledPayment()) :
                     $note .= "\n";
-                    $note .= sprintf(__('Transaction %s.', 'woo-payzen-payment'), $this->response->get('trans_id'));
-                }
-                $order->add_order_note($note);
+                    $note .= sprintf(
+                        __('Transaction %s.', 'tify'),
+                        $this->response->get('trans_id')
+                    );
+                endif;
+                $order->addNote($note);
+
+                // @todo
                 $order->update_status('failed');
 
-                $this->log('Payment failed or cancelled. ' . $this->response->getLogString());
+                $this->log(
+                    sprintf(
+                        __('Paiement échoué ou annulé. %s', 'tify'),
+                        $this->response->getLogMessage()
+                    ),
+                    'error'
+                );
 
-                if ($from_server) {
-                    $this->log('SERVER URL PROCESS END');
+                if ($from_server) :
+                    $this->log(
+                        __('Fin du processus de traitement côté serveur', 'tify'),
+                        'info'
+                    );
+
                     die($this->response->getOutputForPlatform('payment_ko'));
-                } else {
+                else :
                     if (! $this->response->isCancelledPayment()) {
-                        $this->add_notice(__('Your payment was not accepted. Please, try to re-order.', 'woo-payzen-payment'), 'error');
+                        $this->notices()->add(
+                            __('Votre paiement n\'a pas été accepté. Veuillez réessayer.', 'tify'),
+                            'error'
+                        );
                     }
 
-                    $this->log('RETURN URL PROCESS END');
-                    wp_redirect($error_url);
+                    $this->log(
+                        __('Fin du processus de traitement côté client', 'tify'),
+                        'info'
+                    );
+
+                    \wp_redirect($error_url);
                     die();
-                }
-            }
+                endif;
+            endif;
         else :
-            $this->log('Order #' . $order_id . ' is already processed. Just show payment result.');
+            $this->log(
+                sprintf(
+                    __('La commande n°%s a déjà été traitée. Seul le résultat de paiement est affiché.', 'tify'),
+                    $order_id
+                ),
+                'info'
+            );
+            if ($this->response->isAcceptedPayment() && $order->hasStatus($this->orderSuccessStatuses())) :
+                $this->log(
+                    __('Le paiement a été reconfirmé avec succès.', 'tify'),
+                    'info'
+                );
 
-            if ($this->response->isAcceptedPayment() && key_exists($this->get_order_property($order, 'status'), self::$success_order_statues)) {
-                $this->log('Payment successfull reconfirmed.');
+                if ($from_server) :
+                    $this->log(
+                        __('Fin du processus de traitement côté serveur', 'tify'),
+                        'info'
+                    );
 
-                // order success registered and payment succes received
-                if ($from_server) {
-                    $this->log('SERVER URL PROCESS END');
-                    die ($this->response->getOutputForPlatform('payment_ok_already_done'));
-                } else {
-                    $this->log('RETURN URL PROCESS END');
-                    wp_redirect($this->get_return_url($order));
+                    die($this->response->getOutputForPlatform('payment_ok_already_done'));
+                else :
+                    $this->log(
+                        __('Fin du processus de traitement côté client', 'tify'),
+                        'info'
+                    );
+
+                    \wp_redirect($this->getReturnUrl($order));
                     die();
-                }
-            } elseif (! $this->response->isAcceptedPayment() && ($this->get_order_property($order, 'status') === 'failed' || $this->get_order_property($order, 'status') === 'cancelled')) {
-                $this->log('Payment failed reconfirmed.');
+                endif;
+            elseif (! $this->response->isAcceptedPayment() && ($order->hasStatus(['order-failed', 'order-cancelled']))) :
+                $this->log(
+                    __('Echec de reconfirmation de paiement.', 'tify'),
+                    'error'
+                );
 
-                // order failure registered and payment error received
-                if ($from_server) {
-                    $this->log('SERVER URL PROCESS END');
+                if ($from_server) :
+                    $this->log(
+                        __('Fin du processus de traitement côté serveur', 'tify'),
+                        'info'
+                    );
+
                     die($this->response->getOutputForPlatform('payment_ko_already_done'));
-                } else {
-                    $this->log('RETURN URL PROCESS END');
+                else :
+                    $this->log(
+                        __('Fin du processus de traitement côté client', 'tify'),
+                        'info'
+                    );
 
-                    if (! $this->response->isCancelledPayment()) {
-                        $this->add_notice(__('Your payment was not accepted. Please, try to re-order.', 'woo-payzen-payment'), 'error');
-                    }
+                    if (! $this->response->isCancelledPayment()) :
+                        $this->notices()->add(
+                            __('Votre paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify'),
+                            'error'
+                        );
+                    endif;
 
                     wp_redirect($error_url);
                     die();
-                }
-            } else {
-                $this->log('Error ! Invalid payment result received for already saved order. Payment result : ' . $this->response->get('result') . ', Order status : ' . $this->get_order_property($order, 'status'));
+                endif;
+            else :
+                $this->log(
+                    sprintf(
+                        __('ERREUR ! Résultat de paiement invalide pour la commande dèja traitée : %s - statut : %s', 'tify'),
+                        $this->response->get('result'),
+                        $order->getStatus()
+                    ),
+                    'error'
+                );
 
-                // registered order status not match payment result
-                if ($from_server) {
-                    $this->log('SERVER URL PROCESS END');
+                if ($from_server) :
+                    $this->log(
+                        __('Fin du processus de traitement côté serveur', 'tify'),
+                        'info'
+                    );
+
                     die($this->response->getOutputForPlatform('payment_ko_on_order_ok'));
-                } else {
-                    $this->log('RETURN URL PROCESS END');
-                    wp_die(sprintf(__('Error : invalid payment code received for already processed order (%s).', 'woo-payzen-payment'), $order_id));
-                }
-            }
+                else :
+                    $this->log(
+                        __('Fin du processus de traitement côté client', 'tify'),
+                        'info'
+                    );
+
+                    wp_die(
+                        sprintf(
+                            __('Erreur: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.', 'tify'),
+                            $order_id
+                        ),
+                        __('Payzen ', 'tify'),
+                        500
+                    );
+                endif;
+            endif;
         endif;
+    }
+
+    /**
+     * Vérifie s'il s'agit du pré-traitement de la commande.
+     *
+     * @param OrderInterface $order Classe de rappel de la commande
+     * @param string $transaction_id Identifiant de qualification de transaction
+     *
+     * @return bool
+     */
+    private function isNewOrder($order, $transaction_id)
+    {
+        if ($order->hasStatus('order-pending')) :
+            return true;
+        endif;
+
+        if ($order->hasStatus('order-failed') || $order->hasStatus('order-cancelled')) :
+            return get_post_meta((int) $order->getId(), 'Transaction ID', true) !== $transaction_id;
+        endif;
+
+        return false;
     }
 }
