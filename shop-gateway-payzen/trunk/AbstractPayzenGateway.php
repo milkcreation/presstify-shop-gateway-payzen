@@ -50,7 +50,8 @@ abstract class AbstractPayzenGateway extends AbstractGateway
      */
     final public function tify_route_register()
     {
-        Route::register('tify-shop-gateway-payzen',
+        Route::register(
+            'tify-shop-gateway-payzen',
             [
                 'path' => '/tify-shop-api/gateway-payzen',
                 'cb' => function () {
@@ -93,10 +94,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
         if ($from_server) :
             $this->log(
-                sprintf(
-                    __('Réponse du processus de traitement côté serveur : %s', 'tify'), print_r($raw_response, true)
-                ),
-                'info'
+                __('Données de réponse du processus de traitement côté serveur reçues.', 'tify'),
+                'info',
+                $raw_response
             );
         endif;
 

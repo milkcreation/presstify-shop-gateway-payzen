@@ -1,6 +1,6 @@
 {
   "name": "presstify-plugins/shop-gateway-payzen",
-  "description": "Plateforme de paiement Payzen pour le plugin ecommerce Shop de PresstiFy",
+  "description": "Plateforme de paiement Payzen pour le plugin ecommerce Shop de PresstiFy.",
   "type": "presstify-plugin",
   "keywords": [
     "presstify",
@@ -12,18 +12,25 @@
     "payzen"
   ],
   "homepage": "https://svn.tigreblanc.fr/presstify-plugins/shop-gateway-payzen",
-  "time": "2018-03-29",
+  "time": "2018-04-03",
   "license": "proprietary",
   "authors": [
     {
-      "name": "Manner Jordy",
+      "name": "Jordy Manner",
       "email": "jordy.manner@milkcreation.fr",
       "role": "Developper"
     }
   ],
+  "repositories": [
+    {
+      "type": "composer",
+      "url": "http://composer.tigreblanc.fr/presstify/"
+    }
+  ],
   "require": {
-    "presstify-plugins/shop": "^1.0",
-    "presstify/framework": "^1.4"
+    "composer/installers": "~1.0",
+    "presstify/framework": "^1.4",
+    "presstify-plugins/shop": "^1.0"
   },
   "autoload": {
     "psr-4": {
