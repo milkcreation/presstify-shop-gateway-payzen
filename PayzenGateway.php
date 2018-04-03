@@ -37,7 +37,7 @@ final class PayzenGateway extends AbstractPayzenGateway
      *      @var int $redirect_error_timeout Temps écoulé avant que l'acheteur ne soit redirigé vers le site lorque que le paiement est en échec.
      *      @var array $redirect_error_message {
      *          Liste des attributs du message lorque le paiement est en échec.
-     *
+     *ShopGatewayPayzen
      *          @var string $text Message affiché.
      *          @var string $lang Langue du message.
      *      }
@@ -69,7 +69,7 @@ final class PayzenGateway extends AbstractPayzenGateway
             'key_prod'                 => '',
             'ctx_mode'                 => 'TEST',
             'platform_url'             => 'https://secure.payzen.eu/vads-payment/',
-            'url_check'                => home_url('/tify-shop-api/gateway-payzen'),
+            'url_check'                => esc_url(home_url('/tify-shop-api/gateway-payzen')),
             'language'                 => 'fr',
             'languages'                => ['fr'],
             'capture_delay'            => 0,
@@ -84,7 +84,7 @@ final class PayzenGateway extends AbstractPayzenGateway
             'redirect_error_message'   => [
                 'fr_FR' => __('Redirection vers la boutique dans quelques instants...', 'tify')
             ],
-            'return_mode'              => 'GET',
+            'return_mode'              => 'POST',
             'order_status_on_success'  => 'default'
         ];
     }
@@ -176,8 +176,10 @@ final class PayzenGateway extends AbstractPayzenGateway
                     '',
                     $order->getAddressAttr('phone', 'shipping')
                 ),
-                'url_return'         => $this->get('url_check',
-                    esc_url(add_query_arg('api', 'ShopGatewayPayzen', \home_url())))
+                'url_return'         => $this->get(
+                    'url_check',
+                    esc_url(home_url('/tify-shop-api/gateway-payzen'))
+                )
             ];
 
             $this->request->setFromArray($params);
