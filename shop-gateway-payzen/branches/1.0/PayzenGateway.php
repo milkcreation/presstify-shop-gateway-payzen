@@ -20,7 +20,7 @@ final class PayzenGateway extends AbstractPayzenGateway
      *      @var string $key_prod Certificat en mode PROD.
      *      @var string $ctx_mode Mode de fonctionnement du module. TEST|PROD.
      *      @var string $platform_url Url de la page de paiement. Par défaut https://secure.payzen.eu/vads-payment/.
-     *      @var string $url_check Url de notification. Par défaut http(s)://{url_du_site}/?api=ShopGatewayPayzen.
+     *      @var string $url_check Url de notification. Par défaut http(s)://{url_du_site}/tify-shop-api/gateway-payzen.
      *      @var string $language Langue par défaut utilisée sur le site de paiement.
      *      @var string[] $languages Liste des langues proposées sur la page de paiement.
      *      @var int $capture_delay Nombre de jours avant la remise en banque.
@@ -37,7 +37,7 @@ final class PayzenGateway extends AbstractPayzenGateway
      *      @var int $redirect_error_timeout Temps écoulé avant que l'acheteur ne soit redirigé vers le site lorque que le paiement est en échec.
      *      @var array $redirect_error_message {
      *          Liste des attributs du message lorque le paiement est en échec.
-     *ShopGatewayPayzen
+     *
      *          @var string $text Message affiché.
      *          @var string $lang Langue du message.
      *      }
