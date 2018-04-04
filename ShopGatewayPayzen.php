@@ -6,7 +6,7 @@
  * @author Jordy Manner <jordy@milkcreation.fr>
  * @package presstify-plugins/shop-gateway-payzen
  * @namespace \tiFy\Plugins\ShopGatewayPayzen
- * @version 1.0.0
+ * @version 1.0.1
  */
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
@@ -30,7 +30,7 @@ final class ShopGatewayPayzen extends Plugin
     }
 
     /**
-     * Déclaration de la plateforme de paiement
+     * Déclaration de la plateforme de paiement.
      * @see http://event.thephpleague.com/2.0/listeners/callables/
      *
      * @param Event $event
