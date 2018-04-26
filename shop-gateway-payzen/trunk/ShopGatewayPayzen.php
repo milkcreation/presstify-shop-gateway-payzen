@@ -6,7 +6,7 @@
  * @author Jordy Manner <jordy@milkcreation.fr>
  * @package presstify-plugins/shop-gateway-payzen
  * @namespace \tiFy\Plugins\ShopGatewayPayzen
- * @version 1.0.1
+ * @version 1.1.0
  */
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
