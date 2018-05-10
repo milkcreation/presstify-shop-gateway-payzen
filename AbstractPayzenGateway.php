@@ -46,11 +46,13 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     /**
      * Déclaration de la route de traitement de la commande par le serveur de paiement
      *
+     * @param Route $route Classe de rappel de traitement des routes.
+     *
      * @return void
      */
-    final public function tify_route_register()
+    final public function tify_route_register($route)
     {
-        Route::register(
+        $route->register(
             'tify-shop-gateway-payzen',
             [
                 'path' => '/tify-shop-api/gateway-payzen',
