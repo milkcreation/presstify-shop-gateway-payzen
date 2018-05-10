@@ -6,16 +6,16 @@
  * @author Jordy Manner <jordy@milkcreation.fr>
  * @package presstify-plugins/shop-gateway-payzen
  * @namespace \tiFy\Plugins\ShopGatewayPayzen
- * @version 1.1.0
+ * @version 2.0.0
  */
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
-use tiFy\App\Plugin;
 use League\Event\Event;
+use tiFy\Apps\AppController;
 use tiFy\Plugins\Shop\Gateways\GatewaysInterface;
 
-final class ShopGatewayPayzen extends Plugin
+final class ShopGatewayPayzen extends AppController
 {
     /**
      * CONSTRUCTEUR.
