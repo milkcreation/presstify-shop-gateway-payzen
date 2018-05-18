@@ -26,7 +26,7 @@ final class ShopGatewayPayzen extends AppController
     {
         parent::__construct();
 
-        $this->appListen('tify.plugins.shop.gateways.register', [$this, 'register']);
+        $this->appEventListen('tify.plugins.shop.gateways.register', [$this, 'register']);
     }
 
     /**
