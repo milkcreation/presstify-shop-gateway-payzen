@@ -5,7 +5,7 @@ namespace tiFy\Plugins\ShopGatewayPayzen;
 use \PayzenApi;
 use tiFy\Plugins\Shop\Orders\OrderInterface;
 
-final class PayzenGateway extends AbstractPayzenGateway
+class PayzenGateway extends AbstractPayzenGateway
 {
     /**
      * Récupération des attributs de configuration par défaut
@@ -87,18 +87,6 @@ final class PayzenGateway extends AbstractPayzenGateway
             'return_mode'              => 'POST',
             'order_status_on_success'  => 'default'
         ];
-    }
-
-    /**
-     * Affichage de l'image d'identification de la plateforme.
-     *
-     * @return string
-     */
-    public function icon()
-    {
-        ob_start();
-        self::tFyAppGetTemplatePart('_customer/checkout/payment-bank_card-icon');
-        return ob_get_clean();
     }
 
     /**
@@ -269,6 +257,6 @@ final class PayzenGateway extends AbstractPayzenGateway
         $order = $this->orders()->get();
         $request = $this->request;
 
-        return self::tFyAppGetTemplatePart('checkout-payment-form', null, compact('order', 'request'));
+        echo $this->appTemplateRender('checkout-payment-form', compact('order', 'request'));
     }
 }
