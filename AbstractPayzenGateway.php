@@ -37,7 +37,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         parent::__construct($id, $attributes, $shop);
 
         // Initialisation de l'Api Payzen
-        require_once $this->appDirname(get_class()) . '/Api/PayzenRequest.php';
+        require_once dirname(__FILE__) . '/Api/PayzenRequest.php';
         $this->request = new PayzenRequest();
 
         $this->appAddAction('tify_route_register');
@@ -84,7 +84,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
         $raw_response = $this->appRequest($this->get('return_mode', ''))->all([]);
 
-        require_once $this->appDirname(get_class()) . '/Api/PayzenResponse.php';
+        require_once dirname(__FILE__) . '/Api/PayzenResponse.php';
         $this->response = new PayzenResponse(
             $raw_response,
             $this->get('ctx_mode'),
