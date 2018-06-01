@@ -50,7 +50,7 @@ class PayzenGateway extends AbstractPayzenGateway
         return [
             'order_button_text'        => '',
             'enabled'                  => true,
-            'title'                    => __('Carte', 'theme'),
+            'title'                    => __('Carte bancaire', 'theme'),
             'description'              => __('Carte bancaire Visa ou Mastercard', 'theme'),
             'method_title'             => __('Paiement par carte bancaire', 'theme'),
             'method_description'       => __('Permet le paiement par carte bancaire', 'theme'),
