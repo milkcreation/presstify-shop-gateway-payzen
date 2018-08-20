@@ -37,7 +37,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         parent::__construct($id, $attributes, $shop);
 
         // Initialisation de l'Api Payzen
-        require_once dirname(__FILE__) . '/Api/PayzenRequest.php';
+        require_once $this->appDirname() . '/Api/PayzenRequest.php';
         $this->request = new PayzenRequest();
 
         $this->appAddAction('tify_route_register');
@@ -46,13 +46,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     /**
      * Déclaration de la route de traitement de la commande par le serveur de paiement
      *
-     * @param Route $route Classe de rappel de traitement des routes.
-     *
      * @return void
      */
-    final public function tify_route_register($route)
+    final public function tify_route_register()
     {
-        $route->register(
+        Route::register(
             'tify-shop-gateway-payzen',
             [
                 'path' => '/tify-shop-api/gateway-payzen',
@@ -82,9 +80,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     {
         @ob_clean();
 
-        $raw_response = $this->appRequest($this->get('return_mode', ''))->all([]);
+        $raw_response = $this->appRequestCall('all', [], $this->get('return_mode'));
 
-        require_once dirname(__FILE__) . '/Api/PayzenResponse.php';
+        require_once $this->appDirname() . '/Api/PayzenResponse.php';
         $this->response = new PayzenResponse(
             $raw_response,
             $this->get('ctx_mode'),
@@ -294,7 +292,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                 else :
                     if (! $this->response->isCancelledPayment()) {
                         $this->notices()->add(
-                            __('Votre paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify'),
+                            __('Votre paiement n\'a pas été accepté. Veuillez réessayer.', 'tify'),
                             'error'
                         );
                     }
