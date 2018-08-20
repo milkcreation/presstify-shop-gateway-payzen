@@ -12,7 +12,7 @@
     "payzen"
   ],
   "homepage": "https://svn.tigreblanc.fr/presstify-plugins/shop-gateway-payzen",
-  "time": "2018-06-01",
+  "time": "2018-04-04",
   "license": "proprietary",
   "authors": [
     {
@@ -29,8 +29,8 @@
   ],
   "require": {
     "composer/installers": "~1.0",
-    "presstify/framework": "^2.0",
-    "presstify-plugins/shop": "^2.0"
+    "presstify/framework": "^1.4",
+    "presstify-plugins/shop": "^1.0"
   },
   "autoload": {
     "psr-4": {

@@ -6,16 +6,16 @@
  * @author Jordy Manner <jordy@milkcreation.fr>
  * @package presstify-plugins/shop-gateway-payzen
  * @namespace \tiFy\Plugins\ShopGatewayPayzen
- * @version 2.0.0
+ * @version 1.0.1
  */
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
+use tiFy\App\Plugin;
 use League\Event\Event;
-use tiFy\Apps\AppController;
 use tiFy\Plugins\Shop\Gateways\GatewaysInterface;
 
-final class ShopGatewayPayzen extends AppController
+final class ShopGatewayPayzen extends Plugin
 {
     /**
      * CONSTRUCTEUR.
@@ -26,7 +26,7 @@ final class ShopGatewayPayzen extends AppController
     {
         parent::__construct();
 
-        $this->appEventListen('tify.plugins.shop.gateways.register', [$this, 'register']);
+        $this->appListen('tify.plugins.shop.gateways.register', [$this, 'register']);
     }
 
     /**
