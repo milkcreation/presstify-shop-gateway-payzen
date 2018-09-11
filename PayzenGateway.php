@@ -45,7 +45,7 @@ class PayzenGateway extends AbstractPayzenGateway
      *      @var string $order_status_on_success Statut de commande payée à l'issue d'un paiement réussi.
      * }
      */
-    public function getDefaults()
+    public function defaults()
     {
         return [
             'order_button_text'        => '',
