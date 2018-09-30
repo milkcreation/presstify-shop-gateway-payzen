@@ -257,6 +257,8 @@ class PayzenGateway extends AbstractPayzenGateway
         $order = $this->orders()->get();
         $request = $this->request;
 
-        echo $this->appTemplateRender('checkout-payment-form', compact('order', 'request'));
+        echo view()
+            ->setDirectory(__DIR__ . '/Resources/views')
+            ->render('checkout-payment-form', compact('order', 'request'));
     }
 }
