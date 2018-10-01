@@ -116,7 +116,7 @@ class PayzenGateway extends AbstractPayzenGateway
      */
     public function checkoutPaymentFillRequest()
     {
-        $order = $this->orders()->get();
+        $order = $this->orders()->getItem();
 
         if (!$currency = PayzenApi::findCurrencyByAlphaCode($this->settings()->currency())) :
             $this->notices()->add(
@@ -254,7 +254,7 @@ class PayzenGateway extends AbstractPayzenGateway
      */
     public function checkoutPaymentForm()
     {
-        $order = $this->orders()->get();
+        $order = $this->orders()->getItem();
         $request = $this->request;
 
         echo view()
