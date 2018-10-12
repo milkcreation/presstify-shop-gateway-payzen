@@ -2,20 +2,19 @@
 
 /**
  * @name ShopGatewayPayzen
- * @desc Plateforme de paiement Payzen pour le plugin ecommerce Shop de PresstiFy
+ * @desc Plateforme de paiement Payzen pour le plugin ecommerce Shop de PresstiFy.
  * @author Jordy Manner <jordy@milkcreation.fr>
  * @package presstify-plugins/shop-gateway-payzen
  * @namespace \tiFy\Plugins\ShopGatewayPayzen
- * @version 2.0.0
+ * @version 2.0.1
  */
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
 use League\Event\Event;
-use tiFy\Apps\AppController;
-use tiFy\Plugins\Shop\Gateways\GatewaysInterface;
+use tiFy\Plugins\Shop\Contracts\GatewaysInterface;
 
-final class ShopGatewayPayzen extends AppController
+final class ShopGatewayPayzen
 {
     /**
      * CONSTRUCTEUR.
@@ -24,9 +23,7 @@ final class ShopGatewayPayzen extends AppController
      */
     public function __construct()
     {
-        parent::__construct();
-
-        $this->appEventListen('tify.plugins.shop.gateways.register', [$this, 'register']);
+        events()->listen('tify.plugins.shop.gateways.register', [$this, 'register']);
     }
 
     /**
