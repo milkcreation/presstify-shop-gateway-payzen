@@ -145,7 +145,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         $order_id = (int) $this->response->get('order_id');
         $from_server = $this->response->get('hash') != null;
 
-        $order = $this->orders()->get($order_id);
+        $order = $this->orders()->getItem($order_id);
 
         if ($order->getOrderKey() !== $this->response->get('order_info')) :
             $this->log(
