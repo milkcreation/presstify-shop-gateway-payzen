@@ -2,10 +2,11 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
-use \PayzenApi;
-use \PayzenRequest;
-use \PayzenResponse;
-use tiFy\Core\Route\Route;
+use PayzenApi;
+use PayzenRequest;
+use PayzenResponse;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
 use tiFy\Plugins\Shop\Gateways\AbstractGateway;
 use tiFy\Plugins\Shop\Orders\OrderInterface;
 use tiFy\Plugins\Shop\Shop;
@@ -40,26 +41,17 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         require_once dirname(__FILE__) . '/Api/PayzenRequest.php';
         $this->request = new PayzenRequest();
 
-        $this->appAddAction('tify_route_register');
-    }
-
-    /**
-     * Déclaration de la route de traitement de la commande par le serveur de paiement
-     *
-     * @param Route $route Classe de rappel de traitement des routes.
-     *
-     * @return void
-     */
-    final public function tify_route_register($route)
-    {
-        $route->register(
-            'tify-shop-gateway-payzen',
-            [
-                'path' => '/tify-shop-api/gateway-payzen',
-                'cb' => function () {
-                    $this->appAddAction('wp_loaded', 'checkNotifyResponse');
-                }
-            ]
+        add_action(
+            'init',
+            function () {
+                router(
+                    'tify-shop-gateway-payzen',
+                    [
+                        'path' => '/tify-shop-api/gateway-payzen',
+                        'cb'   => [$this, 'checkNotifyResponse']
+                    ]
+                );
+            }
         );
     }
 
@@ -76,13 +68,16 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     /**
      * Vérification de la réponse suite au paiement.
      *
+     * @param ServerRequestInterface $request
+     * @param ResponseInterface $response
+     *
      * @return void
      */
-    public function checkNotifyResponse()
+    public function checkNotifyResponse(ServerRequestInterface $request, ResponseInterface $response)
     {
         @ob_clean();
-
-        $raw_response = $this->appRequest($this->get('return_mode', ''))->all([]);
+        
+        $raw_response = request()->getProperty($this->get('return_mode', ''))->all([]);
 
         require_once dirname(__FILE__) . '/Api/PayzenResponse.php';
         $this->response = new PayzenResponse(
