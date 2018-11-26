@@ -5,7 +5,6 @@ namespace tiFy\Plugins\ShopGatewayPayzen;
 use PayzenApi;
 use PayzenRequest;
 use PayzenResponse;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use tiFy\Plugins\Shop\Gateways\AbstractGateway;
 use tiFy\Plugins\Shop\Orders\OrderInterface;
@@ -69,11 +68,10 @@ abstract class AbstractPayzenGateway extends AbstractGateway
      * Vérification de la réponse suite au paiement.
      *
      * @param ServerRequestInterface $request
-     * @param ResponseInterface $response
      *
      * @return void
      */
-    public function checkNotifyResponse(ServerRequestInterface $request, ResponseInterface $response)
+    public function checkNotifyResponse(ServerRequestInterface $request)
     {
         @ob_clean();
         
