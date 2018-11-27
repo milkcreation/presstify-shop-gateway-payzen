@@ -140,8 +140,9 @@ class PayzenGateway extends AbstractPayzenGateway
                 'cust_email'         => $order->getAddressAttr('email', 'billing'),
                 'cust_first_name'    => $order->getAddressAttr('first_name', 'billing'),
                 'cust_last_name'     => $order->getAddressAttr('last_name', 'billing'),
-                'cust_address'       => $order->getAddressAttr('address_1',
-                        'billing') . ' ' . $order->getAddressAttr('address_2', 'billing'),
+                'cust_address'       => $order->getAddressAttr('address_1', 'billing') .
+                                        ' ' .
+                                        $order->getAddressAttr('address_2', 'billing'),
                 'cust_zip'           => $order->getAddressAttr('postcode', 'billing'),
                 'cust_country'       => $order->getAddressAttr('country', 'billing'),
                 'cust_phone'         => str_replace(
