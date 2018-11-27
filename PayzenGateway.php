@@ -45,7 +45,7 @@ class PayzenGateway extends AbstractPayzenGateway
      *      @var string $order_status_on_success Statut de commande payée à l'issue d'un paiement réussi.
      * }
      */
-    public function getDefaults()
+    public function defaults()
     {
         return [
             'order_button_text'        => '',
@@ -116,7 +116,7 @@ class PayzenGateway extends AbstractPayzenGateway
      */
     public function checkoutPaymentFillRequest()
     {
-        $order = $this->orders()->get();
+        $order = $this->orders()->getItem();
 
         if (!$currency = PayzenApi::findCurrencyByAlphaCode($this->settings()->currency())) :
             $this->notices()->add(
@@ -140,8 +140,9 @@ class PayzenGateway extends AbstractPayzenGateway
                 'cust_email'         => $order->getAddressAttr('email', 'billing'),
                 'cust_first_name'    => $order->getAddressAttr('first_name', 'billing'),
                 'cust_last_name'     => $order->getAddressAttr('last_name', 'billing'),
-                'cust_address'       => $order->getAddressAttr('address_1',
-                        'billing') . ' ' . $order->getAddressAttr('address_2', 'billing'),
+                'cust_address'       => $order->getAddressAttr('address_1', 'billing') .
+                                        ' ' .
+                                        $order->getAddressAttr('address_2', 'billing'),
                 'cust_zip'           => $order->getAddressAttr('postcode', 'billing'),
                 'cust_country'       => $order->getAddressAttr('country', 'billing'),
                 'cust_phone'         => str_replace(
@@ -254,9 +255,11 @@ class PayzenGateway extends AbstractPayzenGateway
      */
     public function checkoutPaymentForm()
     {
-        $order = $this->orders()->get();
+        $order = $this->orders()->getItem();
         $request = $this->request;
 
-        echo $this->appTemplateRender('checkout-payment-form', compact('order', 'request'));
+        echo view()
+            ->setDirectory(__DIR__ . '/Resources/views')
+            ->render('checkout-payment-form', compact('order', 'request'));
     }
 }
