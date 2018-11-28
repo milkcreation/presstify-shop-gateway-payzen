@@ -214,7 +214,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                 $note .= "\n";
                 $note .= sprintf(__('Transaction %s.', 'tify'), $this->response->get('trans_id'));
                 $order->addNote($note);
-                $order->paymentComplete();
+                $order->paymentComplete($this->response->get('trans_id'));
 
                 if ($from_server) :
                     $this->log(
