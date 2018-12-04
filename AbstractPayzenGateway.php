@@ -2,11 +2,10 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
-use PayzenApi;
 use PayzenRequest;
 use PayzenResponse;
+use tiFy\Plugins\Shop\Contracts\OrderInterface;
 use tiFy\Plugins\Shop\Gateways\AbstractGateway;
-use tiFy\Plugins\Shop\Orders\OrderInterface;
 use tiFy\Plugins\Shop\Shop;
 
 abstract class AbstractPayzenGateway extends AbstractGateway
@@ -26,8 +25,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     /**
      * CONSTRUCTEUR
      *
-     * @param Shop $shop Classe de rappel de la boutique
-     * @param array Liste des attributs de l'article dans le panier
+     * @param string $id Identifiant de qualification de la plateforme.
+     * @param array Liste des attributs de l'article dans le panier.
+     * @param Shop $shop Instance de la boutique.
      *
      * @return void
      */
@@ -42,7 +42,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         add_action(
             'after_setup_tify',
             function () {
-                $route = router(
+                router(
                     'shop.gateway.payzen',
                     [
                         'method' => $this->get('return_mode'),
@@ -141,8 +141,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         if ($order->getOrderKey() !== $this->response->get('order_info')) :
             $this->log(
                 sprintf(
-                    __('ERREUR: La commande n°%s n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant reçu par le paiement.',
-                        'tify'),
+                    __(
+                        'ERREUR: La commande n°%s n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant ' .
+                        'reçu par le paiement.',
+                        'tify'
+                    ),
                     $order->getId()
                 ),
                 'error'
@@ -173,9 +176,15 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         endif;
 
         if ($this->get('ctx_mode') === 'TEST') :
-            $msg = __('<p><u>PASSAGE EN PRODUCTION</u></p>Si vous souhaitez obtenir des informations pour régler votre boutique en mode production, veuillez consulter l\'url suivante: ',
-                'tify');
-            $msg .= '<a href="https://secure.payzen.eu/html/faq/prod" target="_blank">https://secure.payzen.eu/html/faq/prod</a>';
+            $msg = __(
+                '<p><u>PASSAGE EN PRODUCTION</u></p>' .
+                'Si vous souhaitez obtenir des informations pour régler votre boutique en mode production,' .
+                ' veuillez consulter l\'url suivante: ',
+                'tify'
+            );
+            $msg .= '<a href="https://secure.payzen.eu/html/faq/prod" target="_blank">' .
+                        'https://secure.payzen.eu/html/faq/prod' .
+                    '</a>';
 
             $this->notices()->add($msg);
         endif;
@@ -229,21 +238,32 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                     die ($this->response->getOutputForPlatform('payment_ok'));
                 else :
                     $this->log(
-                        __('Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé avec succès, grâce à un traitement de l\'url côté client. Utilisez l\'url de notification instantanée',
-                            'tify'),
+                        __(
+                            'Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé ' .
+                            'avec succès, grâce à un traitement de l\'url côté client.' .
+                            'Utilisez l\'url de notification instantanée',
+                            'tify'
+                        ),
                         'warning'
                     );
 
                     if ($this->get('ctx_mode') === 'TEST') :
                         $ipn_url_warn = sprintf(
-                            __('La notification automatique (échange directe entre la plateforme de paiement et votre boutique) ne semble pas être opérante. Veuillez-vous assurer vous de la configuration depuis l\'url suivante %s',
-                                'tify'),
+                            __(
+                                'La notification automatique (échange directe entre la plateforme de paiement ' .
+                                'et votre boutique) ne semble pas être opérante. Veuillez-vous assurer vous de la ' .
+                                'configuration depuis l\'url suivante %s',
+                                'tify'
+                            ),
                             'https://secure.payzen.eu/vads-merchant/'
                         );
                         $ipn_url_warn .= '<br />';
                         $ipn_url_warn .= sprintf(
-                            __('Pour comprendre le problème veuillez consulter la documentation sur le site de la solution :%s',
-                                'tify'),
+                            __(
+                                'Pour comprendre le problème veuillez consulter la documentation sur' .
+                                'le site de la solution :%s',
+                                'tify'
+                            ),
                             '<a href="https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html" target="_blank">' .
                             'https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html' .
                             '</a>'
@@ -257,7 +277,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         'info'
                     );
 
-                    \wp_redirect($this->getReturnUrl($order));
+                    wp_redirect($this->getReturnUrl($order));
                     die();
                 endif;
             else :
@@ -268,10 +288,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         $this->response->get('trans_id')
                     );
                 endif;
-                $order->addNote($note);
 
-                // @todo
-                $order->update_status('failed');
+                $order->addNote($note);
+                $order->updateStatus('order-failed');
 
                 $this->log(
                     sprintf(
@@ -301,7 +320,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         'info'
                     );
 
-                    \wp_redirect($error_url);
+                    wp_redirect($error_url);
                     die();
                 endif;
             endif;
