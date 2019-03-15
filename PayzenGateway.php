@@ -3,7 +3,7 @@
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
 use \PayzenApi;
-use tiFy\Plugins\Shop\Orders\OrderInterface;
+use tiFy\Plugins\Shop\Contracts\OrderInterface;
 
 class PayzenGateway extends AbstractPayzenGateway
 {
@@ -24,17 +24,22 @@ class PayzenGateway extends AbstractPayzenGateway
      *      @var string $language Langue par défaut utilisée sur le site de paiement.
      *      @var string[] $languages Liste des langues proposées sur la page de paiement.
      *      @var int $capture_delay Nombre de jours avant la remise en banque.
-     *      @var int $validation_mode Mode de validation des paiement. Le mode manuel 1, impose la modération des paiements depuis le Back Office Payzen.
-     *      @var int $3ds_min_amount Montant minimum requis pour activer le 3D Secure. La souscription à l'option doit être active pour être opérante.
-     *      @var bool $redirect_enabled Activation de la redirection automatique. L'acheteur est redirigé automatiquement vers le site à l'issue du paiement.
-     *      @var int $redirect_success_timeout Temps écoulé avant que l'acheteur ne soit redirigé vers le site lorque que le paiement a réussi.
+     *      @var int $validation_mode Mode de validation des paiement. Le mode manuel 1, impose la modération des
+     *                                paiements depuis le Back Office Payzen.
+     *      @var int $3ds_min_amount Montant minimum requis pour activer le 3D Secure. La souscription à l'option doit
+     *                               être active pour être opérante.
+     *      @var bool $redirect_enabled Activation de la redirection automatique. L'acheteur est redirigé
+     *                                  automatiquement vers le site à l'issue du paiement.
+     *      @var int $redirect_success_timeout Temps écoulé avant que l'acheteur ne soit redirigé vers le site lorque
+     *                                         que le paiement a réussi.
      *      @var array $redirect_success_message {
      *          Liste des attributs du message lorque le paiement à réussi.
      *
      *          @var string $text Message affiché.
      *          @var string $lang Langue du message.
      *      }
-     *      @var int $redirect_error_timeout Temps écoulé avant que l'acheteur ne soit redirigé vers le site lorque que le paiement est en échec.
+     *      @var int $redirect_error_timeout Temps écoulé avant que l'acheteur ne soit redirigé vers le site lorque que
+     *                                       le paiement est en échec.
      *      @var array $redirect_error_message {
      *          Liste des attributs du message lorque le paiement est en échec.
      *
@@ -97,11 +102,11 @@ class PayzenGateway extends AbstractPayzenGateway
      * @return array {
      *      Liste des attributs de retour.
      *
-     * @var string $result Résultat de paiement success|error.
-     * @var string $redirect Url de retour
+     *      @var string $result Résultat de paiement success|error.
+     *      @var string $redirect Url de retour
      * }
      */
-    public function processPayment($order)
+    public function processPayment(OrderInterface $order)
     {
         return [
             'result'   => 'success',
@@ -251,7 +256,10 @@ class PayzenGateway extends AbstractPayzenGateway
      * Formulaire de paiement de la commande.
      * @internal Avant d'accéder à la page de paiement de la banque par ex.
      *
-     * @return string
+     * @return void
+     *
+     * @throws \Throwable
+     * @throws \Exception
      */
     public function checkoutPaymentForm()
     {
