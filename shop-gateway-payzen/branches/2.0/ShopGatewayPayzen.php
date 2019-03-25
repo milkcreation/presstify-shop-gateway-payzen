@@ -10,7 +10,7 @@ use tiFy\Plugins\Shop\Contracts\GatewaysInterface;
  * @desc Plateforme de paiement Payzen pour le plugin ecommerce Shop de PresstiFy.
  * @author Jordy Manner <jordy@milkcreation.fr>
  * @package tiFy\Plugins\ShopGatewayPayzen
- * @version 2.0.5
+ * @version 2.0.6
  */
 final class ShopGatewayPayzen
 {
