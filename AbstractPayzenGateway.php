@@ -40,7 +40,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         $this->request = new PayzenRequest();
 
         add_action(
-            'after_setup_tify',
+            'after_setup_theme',
             function () {
                 router(
                     'shop.gateway.payzen',
