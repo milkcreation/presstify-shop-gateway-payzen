@@ -10,30 +10,13 @@ use tiFy\Plugins\Shop\Contracts\GatewaysInterface;
  * @desc Plateforme de paiement Payzen pour le plugin ecommerce Shop de PresstiFy.
  * @author Jordy Manner <jordy@milkcreation.fr>
  * @package tiFy\Plugins\ShopGatewayPayzen
- * @version 2.0.6
+ * @version 2.0.8
+ *
+ * @see https://payzen.eu/support/integration-payzen/
+ * @see https://payzen.io/fr-FR/form-payment/quick-start-guide/sitemap.html Guide d'intégration
+ *
  */
-final class ShopGatewayPayzen
+class ShopGatewayPayzen
 {
-    /**
-     * CONSTRUCTEUR.
-     *
-     * @return void
-     */
-    public function __construct()
-    {
-        events()->listen('tify.plugins.shop.gateways.register', [$this, 'register']);
-    }
 
-    /**
-     * Déclaration de la plateforme de paiement.
-     * @see http://event.thephpleague.com/2.0/listeners/callables/
-     *
-     * @param GatewaysInterface $gateways
-     *
-     * @return void
-     */
-    public function register(GatewaysInterface $gateways)
-    {
-        $gateways->add('payzen', PayzenGateway::class);
-    }
 }
