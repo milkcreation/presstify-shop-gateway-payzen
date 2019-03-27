@@ -39,19 +39,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         require_once dirname(__FILE__) . '/Api/PayzenRequest.php';
         $this->request = new PayzenRequest();
 
-        add_action(
-            'after_setup_theme',
-            function () {
-                router(
-                    'shop.gateway.payzen',
-                    [
-                        'method' => $this->get('return_mode'),
-                        'path'   => '/tify-shop-api/gateway-payzen',
-                        'cb'     => [$this, 'checkNotifyResponse']
-                    ]
-                );
-            }
-        );
+        router('shop.gateway.payzen', [
+            'method' => $this->get('return_mode'),
+            'path'   => '/tify-shop-api/gateway-payzen',
+            'cb'     => [$this, 'checkNotifyResponse']
+        ]);
     }
 
     /**
@@ -95,23 +87,23 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
         if ( ! $this->response->isAuthentified()) :
             $this->log(
-                __('La réponse reçue depuis Payzen est invalide: Authentification en échec', 'tify'),
+                __('La réponse reçue depuis Payzen est invalide: Authentification en échec.', 'tify'),
                 'error'
             );
 
             if ($from_server) :
                 $this->log(
-                    __('Fin du processus de traitement côté serveur', 'tify'),
+                    __('Fin du processus de traitement côté serveur.', 'tify'),
                     'info'
                 );
                 die($this->response->getOutputForPlatform('auth_fail'));
             else :
                 $this->log(
-                    __('Fin du processus de traitement côté client', 'tify'),
+                    __('Fin du processus de traitement côté client.', 'tify'),
                     'info'
                 );
                 wp_die(
-                    __('La réponse reçue depuis Payzen est invalide: Authentification en échec', 'tify'),
+                    __('La réponse reçue depuis Payzen est invalide: Authentification en échec.', 'tify'),
                     __('Payzen - Echec d\'authentification', 'tify'),
                     500
                 );

@@ -170,10 +170,7 @@ class PayzenGateway extends AbstractPayzenGateway
                     '',
                     $order->getAddressAttr('phone', 'shipping')
                 ),
-                'url_return'         => $this->get(
-                    'url_check',
-                    esc_url(home_url('/tify-shop-api/gateway-payzen'))
-                )
+                'url_return'         => $this->get('url_check')
             ];
 
             $this->request->setFromArray($params);
@@ -234,20 +231,23 @@ class PayzenGateway extends AbstractPayzenGateway
 
             // Autres paramètres de configuration
             $config_keys = [
-                'site_id',
+                'capture_delay',
+                'ctx_mode',
                 'key_test',
                 'key_prod',
-                'ctx_mode',
                 'platform_url',
-                'capture_delay',
-                'validation_mode',
                 'redirect_success_timeout',
                 'redirect_error_timeout',
-                'return_mode'
+                'return_mode',
+                'site_id',
+                'sign_algo',
+                'validation_mode'
             ];
 
             foreach ($config_keys as $key) :
-                $this->request->set($key, $this->get($key));
+                if ($this->has($key)) {
+                    $this->request->set($key, $this->get($key));
+                }
             endforeach;
         endif;
     }
