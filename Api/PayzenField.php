@@ -1,37 +1,19 @@
 <?php
 /**
- * PayZen V2-Payment Module version 1.4.1 for WooCommerce 2.x-3.x. Support contact : support@payzen.eu.
+ * Copyright © Lyra Network and contributors.
+ * This file is part of PayZen plugin for WooCommerce. See COPYING.md for license details.
  *
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
- *
- * @author    Lyra Network (http://www.lyra-network.com/)
- * @author    Alsacréations (Geoffrey Crofte http://alsacreations.fr/a-propos#geoffrey)
- * @copyright 2014-2017 Lyra Network and contributors
- * @license   http://www.gnu.org/licenses/old-licenses/gpl-2.0.html  GNU General Public License (GPL v2)
- * @category  payment
- * @package   payzen
+ * @author    Lyra Network (https://www.lyra-network.com/)
+ * @author    Geoffrey Crofte, Alsacréations (https://www.alsacreations.fr/)
+ * @copyright Lyra Network and contributors
+ * @license   http://www.gnu.org/licenses/old-licenses/gpl-2.0.html GNU General Public License (GPL v2)
  */
-
 if (! class_exists('PayzenField', false)) {
-
     /**
      * Class representing a form field to send to the payment platform.
      */
     class PayzenField
     {
-
         /**
          * field name.
          * Matches the HTML input attribute.
@@ -39,14 +21,12 @@ if (! class_exists('PayzenField', false)) {
          * @var string
          */
         private $name;
-
         /**
          * field label in English, may be used by translation systems.
          *
          * @var string
          */
         private $label;
-
         /**
          * field length.
          * Matches the HTML input size attribute.
@@ -54,21 +34,18 @@ if (! class_exists('PayzenField', false)) {
          * @var int
          */
         private $length;
-
         /**
          * PCRE regular expression the field value must match.
          *
          * @var string
          */
         private $regex;
-
         /**
          * Whether the form requires the field to be set (even to an empty string).
          *
          * @var boolean
          */
         private $required;
-
         /**
          * field value.
          * Null or string.
@@ -76,7 +53,6 @@ if (! class_exists('PayzenField', false)) {
          * @var string
          */
         private $value = null;
-
         /**
          * Constructor.
          *
@@ -94,7 +70,6 @@ if (! class_exists('PayzenField', false)) {
             $this->required = $required;
             $this->length = $length;
         }
-
         /**
          * Checks the current value.
          *
@@ -105,14 +80,11 @@ if (! class_exists('PayzenField', false)) {
             if ($this->value === null && $this->required) {
                 return false;
             }
-
             if ($this->value !== null && !preg_match($this->regex, $this->value)) {
                 return false;
             }
-
             return true;
         }
-
         /**
          * Setter for value.
          *
@@ -124,10 +96,8 @@ if (! class_exists('PayzenField', false)) {
             $value = ($value === null) ? null : (string) $value;
             // we save value even if invalid but we return "false" as warning
             $this->value = $value;
-
             return $this->isValid();
         }
-
         /**
          * Return the current value of the field.
          *
@@ -137,7 +107,6 @@ if (! class_exists('PayzenField', false)) {
         {
             return $this->value;
         }
-
         /**
          * Is the field required in the payment request ?
          *
@@ -147,7 +116,6 @@ if (! class_exists('PayzenField', false)) {
         {
             return $this->required;
         }
-
         /**
          * Return the name (HTML attribute) of the field.
          *
@@ -157,7 +125,6 @@ if (! class_exists('PayzenField', false)) {
         {
             return $this->name;
         }
-
         /**
          * Return the english human-readable name of the field.
          *
@@ -167,7 +134,6 @@ if (! class_exists('PayzenField', false)) {
         {
             return $this->label;
         }
-
         /**
          * Return the length of the field value.
          *
@@ -177,7 +143,6 @@ if (! class_exists('PayzenField', false)) {
         {
             return $this->length;
         }
-
         /**
          * Has a value been set ?
          *

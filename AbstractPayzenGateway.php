@@ -2,12 +2,10 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
-use \PayzenApi;
-use \PayzenRequest;
-use \PayzenResponse;
-use tiFy\Core\Route\Route;
+use PayzenRequest;
+use PayzenResponse;
+use tiFy\Plugins\Shop\Contracts\OrderInterface;
 use tiFy\Plugins\Shop\Gateways\AbstractGateway;
-use tiFy\Plugins\Shop\Orders\OrderInterface;
 use tiFy\Plugins\Shop\Shop;
 
 abstract class AbstractPayzenGateway extends AbstractGateway
@@ -27,8 +25,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     /**
      * CONSTRUCTEUR
      *
-     * @param Shop $shop Classe de rappel de la boutique
-     * @param array Liste des attributs de l'article dans le panier
+     * @param string $id Identifiant de qualification de la plateforme.
+     * @param array Liste des attributs de l'article dans le panier.
+     * @param Shop $shop Instance de la boutique.
      *
      * @return void
      */
@@ -40,27 +39,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         require_once dirname(__FILE__) . '/Api/PayzenRequest.php';
         $this->request = new PayzenRequest();
 
-        $this->appAddAction('tify_route_register');
-    }
-
-    /**
-     * Déclaration de la route de traitement de la commande par le serveur de paiement
-     *
-     * @param Route $route Classe de rappel de traitement des routes.
-     *
-     * @return void
-     */
-    final public function tify_route_register($route)
-    {
-        $route->register(
-            'tify-shop-gateway-payzen',
-            [
-                'path' => '/tify-shop-api/gateway-payzen',
-                'cb' => function () {
-                    $this->appAddAction('wp_loaded', 'checkNotifyResponse');
-                }
-            ]
-        );
+        router('shop.gateway.payzen', [
+            'method' => $this->get('return_mode'),
+            'path'   => '/tify-shop-api/gateway-payzen',
+            'cb'     => [$this, 'checkNotifyResponse']
+        ]);
     }
 
     /**
@@ -82,9 +65,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     {
         @ob_clean();
 
-        $raw_response = $this->appRequest($this->get('return_mode', ''))->all([]);
+        $raw_response = request()->getProperty($this->get('return_mode', ''))->all([]);
 
-        require_once dirname(__FILE__) . '/Api/PayzenResponse.php';
+        require_once __DIR__ . '/Api/PayzenResponse.php';
         $this->response = new PayzenResponse(
             $raw_response,
             $this->get('ctx_mode'),
@@ -102,25 +85,25 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             );
         endif;
 
-        if (! $this->response->isAuthentified()) :
+        if ( ! $this->response->isAuthentified()) :
             $this->log(
-                __('La réponse reçue depuis Payzen est invalide: Authentification en échec', 'tify'),
+                __('La réponse reçue depuis Payzen est invalide: Authentification en échec.', 'tify'),
                 'error'
             );
 
             if ($from_server) :
                 $this->log(
-                    __('Fin du processus de traitement côté serveur', 'tify'),
+                    __('Fin du processus de traitement côté serveur.', 'tify'),
                     'info'
                 );
                 die($this->response->getOutputForPlatform('auth_fail'));
             else :
                 $this->log(
-                    __('Fin du processus de traitement côté client', 'tify'),
+                    __('Fin du processus de traitement côté client.', 'tify'),
                     'info'
                 );
                 wp_die(
-                    __('La réponse reçue depuis Payzen est invalide: Authentification en échec', 'tify'),
+                    __('La réponse reçue depuis Payzen est invalide: Authentification en échec.', 'tify'),
                     __('Payzen - Echec d\'authentification', 'tify'),
                     500
                 );
@@ -142,15 +125,19 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     {
         $this->notices()->clear();
 
-        $order_id = (int) $this->response->get('order_id');
+        $order_id = (int)$this->response->get('order_id');
         $from_server = $this->response->get('hash') != null;
 
-        $order = $this->orders()->get($order_id);
+        $order = $this->orders()->getItem($order_id);
 
         if ($order->getOrderKey() !== $this->response->get('order_info')) :
             $this->log(
                 sprintf(
-                    __('ERREUR: La commande n°%s n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant reçu par le paiement.', 'tify'),
+                    __(
+                        'ERREUR: La commande n°%s n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant ' .
+                        'reçu par le paiement.',
+                        'tify'
+                    ),
                     $order->getId()
                 ),
                 'error'
@@ -181,8 +168,15 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         endif;
 
         if ($this->get('ctx_mode') === 'TEST') :
-            $msg  = __('<p><u>PASSAGE EN PRODUCTION</u></p>Si vous souhaitez obtenir des informations pour régler votre boutique en mode production, veuillez consulter l\'url suivante: ', 'tify');
-            $msg .= '<a href="https://secure.payzen.eu/html/faq/prod" target="_blank">https://secure.payzen.eu/html/faq/prod</a>';
+            $msg = __(
+                '<p><u>PASSAGE EN PRODUCTION</u></p>' .
+                'Si vous souhaitez obtenir des informations pour régler votre boutique en mode production,' .
+                ' veuillez consulter l\'url suivante: ',
+                'tify'
+            );
+            $msg .= '<a href="https://secure.payzen.eu/html/faq/prod" target="_blank">' .
+                        'https://secure.payzen.eu/html/faq/prod' .
+                    '</a>';
 
             $this->notices()->add($msg);
         endif;
@@ -191,20 +185,21 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         $error_url = $this->functions()->url()->checkoutPage();
 
         if ($this->isNewOrder($order, $this->response->get('trans_id'))) :
-            \delete_post_meta($order->getId(), 'Transaction ID');
-            \delete_post_meta($order->getId(), 'Card number');
-            \delete_post_meta($order->getId(), 'Payment mean');
-            \delete_post_meta($order->getId(), 'Card expiry');
+            delete_post_meta($order->getId(), 'Transaction ID');
+            delete_post_meta($order->getId(), 'Card number');
+            delete_post_meta($order->getId(), 'Payment mean');
+            delete_post_meta($order->getId(), 'Card expiry');
 
-            \update_post_meta($order->getId(), 'Transaction ID', $this->response->get('trans_id'));
-            \update_post_meta($order->getId(), 'Card number', $this->response->get('card_number'));
-            \update_post_meta($order->getId(), 'Payment mean', $this->response->get('card_brand'));
+            update_post_meta($order->getId(), 'Transaction ID', $this->response->get('trans_id'));
+            update_post_meta($order->getId(), 'Card number', $this->response->get('card_number'));
+            update_post_meta($order->getId(), 'Payment mean', $this->response->get('card_brand'));
 
-            $expiry = str_pad($this->response->get('expiry_month'), 2, '0', STR_PAD_LEFT) . '/' . $this->response->get('expiry_year');
-            if (! $this->response->get('expiry_month')) :
+            $expiry = str_pad($this->response->get('expiry_month'), 2, '0',
+                    STR_PAD_LEFT) . '/' . $this->response->get('expiry_year');
+            if ( ! $this->response->get('expiry_month')) :
                 $expiry = '';
             endif;
-            \update_post_meta($order->getId(), 'Card expiry', $expiry);
+            update_post_meta($order->getId(), 'Card expiry', $expiry);
 
             $note = $this->response->getCompleteMessage("\n");
 
@@ -220,7 +215,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                 $note .= "\n";
                 $note .= sprintf(__('Transaction %s.', 'tify'), $this->response->get('trans_id'));
                 $order->addNote($note);
-                $order->paymentComplete();
+                $order->paymentComplete($this->response->get('trans_id'));
 
                 if ($from_server) :
                     $this->log(
@@ -235,20 +230,34 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                     die ($this->response->getOutputForPlatform('payment_ok'));
                 else :
                     $this->log(
-                        __('Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé avec succès, grâce à un traitement de l\'url côté client. Utilisez l\'url de notification instantanée', 'tify'),
+                        __(
+                            'Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé ' .
+                            'avec succès, grâce à un traitement de l\'url côté client.' .
+                            'Utilisez l\'url de notification instantanée',
+                            'tify'
+                        ),
                         'warning'
                     );
 
                     if ($this->get('ctx_mode') === 'TEST') :
                         $ipn_url_warn = sprintf(
-                            __('La notification automatique (échange directe entre la plateforme de paiement et votre boutique) ne semble pas être opérante. Veuillez-vous assurer vous de la configuration depuis l\'url suivante %s', 'tify'),
+                            __(
+                                'La notification automatique (échange directe entre la plateforme de paiement ' .
+                                'et votre boutique) ne semble pas être opérante. Veuillez-vous assurer vous de la ' .
+                                'configuration depuis l\'url suivante %s',
+                                'tify'
+                            ),
                             'https://secure.payzen.eu/vads-merchant/'
                         );
                         $ipn_url_warn .= '<br />';
                         $ipn_url_warn .= sprintf(
-                            __('Pour comprendre le problème veuillez consulter la documentation sur le site de la solution :%s', 'tify'),
+                            __(
+                                'Pour comprendre le problème veuillez consulter la documentation sur' .
+                                'le site de la solution :%s',
+                                'tify'
+                            ),
                             '<a href="https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html" target="_blank">' .
-                                'https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html' .
+                            'https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html' .
                             '</a>'
                         );
 
@@ -260,21 +269,20 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         'info'
                     );
 
-                    \wp_redirect($this->getReturnUrl($order));
+                    wp_redirect($this->getReturnUrl($order));
                     die();
                 endif;
             else :
-                if (! $this->response->isCancelledPayment()) :
+                if ( ! $this->response->isCancelledPayment()) :
                     $note .= "\n";
                     $note .= sprintf(
                         __('Transaction %s.', 'tify'),
                         $this->response->get('trans_id')
                     );
                 endif;
-                $order->addNote($note);
 
-                // @todo
-                $order->update_status('failed');
+                $order->addNote($note);
+                $order->updateStatus('order-failed');
 
                 $this->log(
                     sprintf(
@@ -292,7 +300,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                     die($this->response->getOutputForPlatform('payment_ko'));
                 else :
-                    if (! $this->response->isCancelledPayment()) {
+                    if ( ! $this->response->isCancelledPayment()) {
                         $this->notices()->add(
                             __('Votre paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify'),
                             'error'
@@ -304,7 +312,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         'info'
                     );
 
-                    \wp_redirect($error_url);
+                    wp_redirect($error_url);
                     die();
                 endif;
             endif;
@@ -338,7 +346,10 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                     \wp_redirect($this->getReturnUrl($order));
                     die();
                 endif;
-            elseif (! $this->response->isAcceptedPayment() && ($order->hasStatus(['order-failed', 'order-cancelled']))) :
+            elseif ( ! $this->response->isAcceptedPayment() && ($order->hasStatus([
+                    'order-failed',
+                    'order-cancelled'
+                ]))) :
                 $this->log(
                     __('Echec de reconfirmation de paiement.', 'tify'),
                     'error'
@@ -357,7 +368,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         'info'
                     );
 
-                    if (! $this->response->isCancelledPayment()) :
+                    if ( ! $this->response->isCancelledPayment()) :
                         $this->notices()->add(
                             __('Votre paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify'),
                             'error'
@@ -370,7 +381,8 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             else :
                 $this->log(
                     sprintf(
-                        __('ERREUR ! Résultat de paiement invalide pour la commande dèja traitée : %s - statut : %s', 'tify'),
+                        __('ERREUR ! Résultat de paiement invalide pour la commande dèja traitée : %s - statut : %s',
+                            'tify'),
                         $this->response->get('result'),
                         $order->getStatus()
                     ),
@@ -392,7 +404,8 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                     wp_die(
                         sprintf(
-                            __('Erreur: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.', 'tify'),
+                            __('Erreur: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.',
+                                'tify'),
                             $order_id
                         ),
                         __('Payzen ', 'tify'),
@@ -418,7 +431,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         endif;
 
         if ($order->hasStatus('order-failed') || $order->hasStatus('order-cancelled')) :
-            return get_post_meta((int) $order->getId(), 'Transaction ID', true) !== $transaction_id;
+            return get_post_meta((int)$order->getId(), 'Transaction ID', true) !== $transaction_id;
         endif;
 
         return false;
