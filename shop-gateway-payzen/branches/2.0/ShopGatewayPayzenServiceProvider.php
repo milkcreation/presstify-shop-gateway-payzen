@@ -2,7 +2,7 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
-use tiFy\App\Container\AppServiceProvider;
+use tiFy\Container\ServiceProvider;
 use tiFy\Plugins\Shop\Shop;
 use tiFy\Plugins\ShopGatewayPayzen\Payzen\Payzen;
 use tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenNotices;
@@ -10,7 +10,7 @@ use tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenRequest;
 use tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenResponse;
 use tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenTransaction;
 
-class ShopGatewayPayzenServiceProvider extends AppServiceProvider
+class ShopGatewayPayzenServiceProvider extends ServiceProvider
 {
     /**
      * Liste des noms de qualification des services fournis.
