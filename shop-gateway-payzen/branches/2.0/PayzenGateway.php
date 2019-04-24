@@ -64,8 +64,8 @@ class PayzenGateway extends AbstractPayzenGateway
                 ),
                 //'cust_address_number'
                 'cust_address'       => $order->getAddressAttr('address_1', 'billing') .
-                                        ' ' .
-                                        $order->getAddressAttr('address_2', 'billing'),
+                    ' ' .
+                    $order->getAddressAttr('address_2', 'billing'),
                 //'cust_district'
                 'cust_zip'           => $order->getAddressAttr('postcode', 'billing'),
                 'cust_city'          => $order->getAddressAttr('city', 'billing'),
@@ -91,27 +91,22 @@ class PayzenGateway extends AbstractPayzenGateway
                 'ship_to_street2'    => $order->getAddressAttr('address_2', 'shipping'),
                 'ship_to_zip'        => $order->getAddressAttr('postcode', 'shipping')
             ]);
-
             foreach ([
                 'capture_delay',
-                //'platform_url',
                 'redirect_enable',
                 'redirect_success_timeout',
                 'redirect_error_timeout',
-                //'return_mode',
+                'return_mode',
+                //'platform_url',
                 //'validation_mode'
             ] as $key) {
                 if ($this->has($key)) {
                     $r->set($key, $this->get($key));
                 }
             };
-
-            /*
-            if (in_array($this->get('return_mode'), ['GET','POST'])) {
-                $r->set('url_return', esc_url(home_url('/tify-shop-api/gateway-payzen')));
+            if (in_array($this->get('return_mode'), ['GET', 'POST'])) {
+                $r->set('url_return', route('shop.gateway.payzen.notify'));
             }
-            */
-
             $r->parse()->setSignature();
         }
         /*
@@ -233,7 +228,6 @@ class PayzenGateway extends AbstractPayzenGateway
      * @var string $key_prod Certificat en mode PROD.
      * @var string $ctx_mode Mode de fonctionnement du module. TEST|PROD.
      * @var string $platform_url Url de la page de paiement. Par défaut https://secure.payzen.eu/vads-payment/.
-     * @var string $url_check Url de notification. Par défaut http(s)://{url_du_site}/tify-shop-api/gateway-payzen.
      * @var string $language Langue par défaut utilisée sur le site de paiement.
      * @var string[] $languages Liste des langues proposées sur la page de paiement.
      * @var int $capture_delay Nombre de jours avant la remise en banque.
@@ -320,8 +314,8 @@ class PayzenGateway extends AbstractPayzenGateway
      * @return array {
      *      Liste des attributs de retour.
      *
-     *      @var string $result Résultat de paiement success|error.
-     *      @var string $redirect Url de retour
+     * @var string $result Résultat de paiement success|error.
+     * @var string $redirect Url de retour
      * }
      */
     public function processPayment(OrderInterface $order)

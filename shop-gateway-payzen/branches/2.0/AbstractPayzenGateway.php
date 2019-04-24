@@ -31,7 +31,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         parent::__construct($id, $attributes, $shop);
 
         router()->group('/tify-shop-api/gateway-payzen', function (RouteGroup $router) {
-            $router->get('/', [$this, 'checkNotifyResponse']);
+            $router->get('/', [$this, 'checkNotifyResponse'])->setName('shop.gateway.payzen.notify');
             $router->post('/', [$this, 'checkNotifyResponse']);
         });
     }
@@ -54,7 +54,8 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             $this->log($this->payzen()->notices('unchecked-sign'), 'error');
             $this->log($this->payzen()->notices('process-end'), 'info');
 
-            if (!$r->fromServer()) {
+            if ($r->fromServer()) {
+            } else {
                 wp_die(
                     __('La réponse reçue depuis Payzen est invalide: Authentification en échec.', 'tify'),
                     __('Payzen - Echec d\'authentification', 'tify'),
@@ -165,7 +166,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                 );
                 $this->log($this->payzen()->notices('process-end'), 'info');
 
-                if (!$r->fromServer()) :
+                if (!$r->fromServer()) {
                     wp_die(
                         sprintf(
                             __('Erreur: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.',
@@ -175,7 +176,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         __('Payzen ', 'tify'),
                         500
                     );
-                endif;
+                }
             }
             exit;
         }
@@ -219,16 +220,18 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             $order->addNote(sprintf(__('Transaction %s.', 'tify'), $r->transaction()->id()));
             $order->paymentComplete($r->transaction()->id());
 
-
             $this->log($this->payzen()->notices('payment-ok'), 'info');
 
             if (!$r->fromServer()) {
                 $this->log(
-                    __(
-                        'Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé ' .
-                        'avec succès, grâce à un traitement de l\'url côté client.' .
-                        'Utilisez l\'url de notification instantanée',
-                        'tify'
+                    sprintf(
+                        __(
+                            'Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé ' .
+                            'avec succès, grâce à un traitement de l\'url côté client.' .
+                            'Utilisez plutôt l\'url de notification instantanée %s',
+                            'tify'
+                        ),
+                        route('shop.gateway.payzen.notify')
                     ),
                     'warning'
                 );
@@ -276,16 +279,17 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             $this->log($this->payzen()->notices('process-end'), 'info');
 
             if (!$r->fromServer()) {
-                if (!$r->transaction()->isCancelled()) {
+                $this->notices()->clear();
+
+                if ($r->transaction()->isAbandonned()) {
+                    $this->notices()->add(__('Le réglement de votre commande a bien été annulée.', 'tify'), 'warning');
+                } else {
                     $this->notices()->add(
-                        __('Votre paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify'),
+                        __('Votre paiement n\'a pas pu être validé. Veuillez essayer à nouveau.', 'tify'),
                         'error'
                     );
-                    wp_redirect($this->functions()->url()->checkoutPage());
-                } else {
-                   // @todo redirection paiement annulé
-                   var_dump('Paiement annulé');
                 }
+                wp_redirect($this->functions()->url()->checkoutPage());
             }
         }
         exit;
@@ -311,7 +315,6 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         if (is_null($this->payzen)) {
             $this->payzen = app()->get('payzen')->setConfig($this->all());
         }
-
         return $this->payzen;
     }
 
@@ -325,14 +328,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
      */
     private function _isNewOrder($order, $transaction_id)
     {
-        if ($order->hasStatus('order-pending')) :
+        if ($order->hasStatus('order-pending')) {
             return true;
-        endif;
-
-        if ($order->hasStatus('order-failed') || $order->hasStatus('order-cancelled')) :
+        } elseif ($order->hasStatus('order-failed') || $order->hasStatus('order-cancelled')) {
             return get_post_meta((int)$order->getId(), 'Transaction ID', true) !== $transaction_id;
-        endif;
-
+        }
         return false;
     }
 }

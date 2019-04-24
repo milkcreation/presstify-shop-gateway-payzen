@@ -50,7 +50,6 @@ class PayzenResponse extends PayzenParamsBag
             case 'signature' :
                 break;
         }
-
         return parent::get($key, $default);
     }
 
