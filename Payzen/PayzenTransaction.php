@@ -159,6 +159,16 @@ class PayzenTransaction extends PayzenParamsBag
     }
 
     /**
+     * Vérifie si le paiement a été abandonné par le client.
+     *
+     * @return bool
+     */
+    public function isAbandonned(): bool
+    {
+        return $this->status() === 'ABANDONED';
+    }
+
+    /**
      * Check if the payment process was interrupted by the client.
      * @return bool
      */
