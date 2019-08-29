@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
@@ -11,15 +11,15 @@ class PayzenGateway extends AbstractPayzenGateway
      *
      * @return void
      */
-    public function checkoutPaymentFillRequest()
+    public function checkoutPaymentFillRequest(): void
     {
-        $order = $this->orders()->getItem();
+        $order = $this->shop->orders()->getItem();
 
-        if (!$currency = $this->payzen()->currencyGetByAlpha($this->settings()->currency())) {
-            $this->notices()->add(
+        if (!$currency = $this->payzen()->currencyGetByAlpha($this->shop->settings()->currency())) {
+            $this->shop->notices()->add(
                 sprintf(
                     __('La devise de paiement (%s) n\'est pour actuellement pas supportée par %s.', 'tify'),
-                    $this->settings()->currency(),
+                    $this->shop->settings()->currency(),
                     'PayZen'
                 ),
                 'error'
@@ -109,90 +109,6 @@ class PayzenGateway extends AbstractPayzenGateway
             }
             $r->parse()->setSignature();
         }
-        /*
-
-        // Liste des paramètres Payzen
-        $params = [
-            'contrib'            => 'PresstiFyShop/2.0/' . PHP_VERSION,
-            'url_return'         => $this->get('url_check')
-        ];
-
-        $this->request->setFromArray($params);
-
-        // Activation du 3D Secure
-        $threeds_mpi = null;
-        if (($this->get('3ds_min_amount', 0) !== 0) && ($order->getTotal() < $this->get('3ds_min_amount', 0))) :
-            $threeds_mpi = '2';
-        endif;
-        $this->request->set('threeds_mpi', $threeds_mpi);
-
-        // Récupération de la langage d'affichage de l'interface Payzen.
-        $locale = get_locale() ? substr(get_locale(), 0, 2) : null;
-        if ($locale && PayzenApi::isSupportedLanguage($locale)) :
-            $this->request->set('language', $locale);
-        else :
-            $this->request->set('language', $this->get('language'));
-        endif;
-
-        // Récupération de la liste des langues de selection disponibles sur l'interface Payzen.
-        $langs = $this->get('available_languages', []);
-        if (is_array($langs) && !in_array('', $langs)) :
-            $this->request->set('available_languages', implode(';', $langs));
-        endif;
-
-        if ($this->getId() != 'payzenchoozeo') :
-            // payment cards
-            if ($this->get('card_data_mode') == 'MERCHANT') :
-                $selected_card = get_transient($this->getId() . '_card_type_' . $order->getId());
-                $this->request->set('payment_cards', $selected_card);
-
-                delete_transient($this->getId() . '_card_type_' . $order->getId());
-            else :
-                $cards = $this->get('payment_cards');
-                if (is_array($cards) && !in_array('', $cards)) :
-                    $this->request->set('payment_cards', implode(';', $cards));
-                endif;
-            endif;
-        endif;
-
-        // Activation de la redirection automatique.
-        $this->request->set('redirect_enabled', $this->get('redirect_enabled', false));
-
-        // Messages de redirection
-        // En cas de succès
-        $success_message = $this->get('redirect_success_message', []);
-        $success_message = (isset($success_message[get_locale()]) && $success_message[get_locale()])
-            ? $success_message[get_locale()]
-            : (is_array($success_message) ? $success_message['en_US'] : $success_message);
-        $this->request->set('redirect_success_message', $success_message);
-
-        // En cas d'échec
-        $error_message = $this->get('redirect_error_message', []);
-        $error_message = (isset($error_message[get_locale()]) && $error_message[get_locale()])
-            ? $error_message[get_locale()]
-            : (is_array($error_message) ? $error_message['en_US'] : $error_message);
-        $this->request->set('redirect_error_message', $error_message);
-
-        // Autres paramètres de configuration
-        $config_keys = [
-            'capture_delay',
-            'ctx_mode',
-            'key_test',
-            'key_prod',
-            'platform_url',
-            'redirect_success_timeout',
-            'redirect_error_timeout',
-            'return_mode',
-            'site_id',
-            'sign_algo',
-            'validation_mode'
-        ];
-
-        foreach ($config_keys as $key) :
-            if ($this->has($key)) {
-                $this->request->set($key, $this->get($key));
-            }
-        endforeach;*/
     }
 
     /**
@@ -205,12 +121,12 @@ class PayzenGateway extends AbstractPayzenGateway
      * @throws \Throwable
      * @throws \Exception
      */
-    public function checkoutPaymentForm()
+    public function checkoutPaymentForm(): void
     {
         echo view()
             ->setDirectory(__DIR__ . '/Resources/views')
             ->render('checkout-payment-form', [
-                'order'   => $this->orders()->getItem(),
+                'order'   => $this->shop->orders()->getItem(),
                 'request' => $this->payzen()->request()
             ]);
     }
@@ -257,7 +173,7 @@ class PayzenGateway extends AbstractPayzenGateway
      * @var string $order_status_on_success Statut de commande payée à l'issue d'un paiement réussi.
      * }
      */
-    public function defaults()
+    public function defaults(): array
     {
         return array_merge(parent::defaults(), [
             'description'              => __('Carte bancaire Visa ou Mastercard', 'theme'),
@@ -307,18 +223,9 @@ class PayzenGateway extends AbstractPayzenGateway
     }
 
     /**
-     * Procède au paiement de la commande.
-     *
-     * @param OrderInterface $order Classe de rappel de la commande à régler.
-     *
-     * @return array {
-     *      Liste des attributs de retour.
-     *
-     * @var string $result Résultat de paiement success|error.
-     * @var string $redirect Url de retour
-     * }
+     * @inheritDoc
      */
-    public function processPayment(OrderInterface $order)
+    public function processPayment(OrderInterface $order): array
     {
         return [
             'result'   => 'success',

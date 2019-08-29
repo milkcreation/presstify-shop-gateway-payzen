@@ -4,7 +4,6 @@
  * @var tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenRequest $request
  */
 ?>
-
 <div>
     <p><?php _e('Merci de bien vouloir patienter, vous allez être redirigé vers la plateforme de paiement', 'tify'); ?></p>
     <p><?php _e('Si la redirection ne s\'est pas effectuée au bout de 10 secondes, cliquer sur le bouton "valider".', 'tify'); ?></p>
