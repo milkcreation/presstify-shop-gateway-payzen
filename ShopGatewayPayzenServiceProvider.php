@@ -1,14 +1,15 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
 use tiFy\Container\ServiceProvider;
-use tiFy\Plugins\Shop\Shop;
-use tiFy\Plugins\ShopGatewayPayzen\Payzen\Payzen;
-use tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenNotices;
-use tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenRequest;
-use tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenResponse;
-use tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenTransaction;
+use tiFy\Plugins\ShopGatewayPayzen\{
+    Payzen\Payzen,
+    Payzen\PayzenNotices,
+    Payzen\PayzenRequest,
+    Payzen\PayzenResponse,
+    Payzen\PayzenTransaction
+};
 
 class ShopGatewayPayzenServiceProvider extends ServiceProvider
 {
@@ -27,9 +28,9 @@ class ShopGatewayPayzenServiceProvider extends ServiceProvider
     ];
 
     /**
-     * @inheritdoc
+     * @inheritDoc
      */
-    public function register()
+    public function register(): void
     {
         $this->getContainer()->share('payzen', function () {
             return new Payzen([], request()->convertToPsr(), $this->getContainer());
@@ -51,8 +52,8 @@ class ShopGatewayPayzenServiceProvider extends ServiceProvider
             return new PayzenTransaction($this->getContainer()->get('payzen'));
         });
 
-        $this->getContainer()->add('shop.gateway.payzen', function ($id, $attributes = [], Shop $shop) {
-            return new PayzenGateway($id, $attributes, $shop);
+        $this->getContainer()->add('shop.gateway.payzen', function (): PayzenGateway {
+            return new PayzenGateway();
         });
     }
 }
