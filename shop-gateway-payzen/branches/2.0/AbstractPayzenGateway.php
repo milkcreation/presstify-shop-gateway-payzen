@@ -208,7 +208,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         update_post_meta($order->getId(), 'Card number', $r->get('card_number'));
         update_post_meta($order->getId(), 'Payment mean', $r->get('card_brand'));
 
-        $expiry = str_pad($r->get('expiry_month'), 2, '0', STR_PAD_LEFT) . '/' . $r->get('expiry_year');
+        $expiry = str_pad((string)$r->get('expiry_month'), 2, '0', STR_PAD_LEFT) . '/' . $r->get('expiry_year');
         if (!$r->get('expiry_month')) {
             $expiry = '';
         }
