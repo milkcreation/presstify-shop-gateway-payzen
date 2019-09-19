@@ -97,7 +97,7 @@ class PayzenGateway extends AbstractPayzenGateway
                 'redirect_success_timeout',
                 'redirect_error_timeout',
                 'return_mode',
-                //'platform_url',
+                'platform_url',
                 //'validation_mode'
             ] as $key) {
                 if ($this->has($key)) {
