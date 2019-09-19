@@ -7,7 +7,7 @@
 <div>
     <p><?php _e('Merci de bien vouloir patienter, vous allez être redirigé vers la plateforme de paiement', 'tify'); ?></p>
     <p><?php _e('Si la redirection ne s\'est pas effectuée au bout de 10 secondes, cliquer sur le bouton "valider".', 'tify'); ?></p>
-    <form method="POST" action="https://secure.payzen.eu/vads-payment/"  name="payzen_payment_form" target="_top">
+    <form method="POST" action="<?php echo $request->get('vads_platform_url'); ?>"  name="payzen_payment_form" target="_top">
         <?php foreach($request->getHtmlFields() as $field) : ?>
             <?php echo $field; ?>
         <?php endforeach; ?>
