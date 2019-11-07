@@ -257,7 +257,7 @@ class Payzen
             $this->notices = $this->hasContainer() ? $this->resolve('notices') : new PayzenNotices($this);
         }
 
-        return $alias ? $this->notices->get($alias) : $this->notices;
+        return $alias ? $this->notices->get($alias, '') : $this->notices;
     }
 
     /**

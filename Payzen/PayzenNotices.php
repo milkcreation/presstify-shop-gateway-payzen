@@ -48,6 +48,7 @@ class PayzenNotices extends PayzenParamsBag
             'payment-ok'     => 'Paiement accepté : La commande a été mise à jour.',
             'process-end'    => 'Fin du processus de traitement initié côté %s.',
             'process-start'  => 'Début du processus de traitement initié coté %s.',
+            'unchecked-sign' => 'La signature ne peut être vérifiée.'
         ];
     }
 
