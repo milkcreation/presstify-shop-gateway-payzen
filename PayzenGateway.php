@@ -2,7 +2,7 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
-use tiFy\Plugins\Shop\Contracts\OrderInterface;
+use tiFy\Plugins\Shop\Contracts\Order;
 
 class PayzenGateway extends AbstractPayzenGateway
 {
@@ -13,7 +13,7 @@ class PayzenGateway extends AbstractPayzenGateway
      */
     public function checkoutPaymentFillRequest(): void
     {
-        $order = $this->shop->orders()->getItem();
+        $order = $this->shop->orders()->get();
 
         if (!$currency = $this->payzen()->currencyGetByAlpha($this->shop->settings()->currency())) {
             $this->shop->notices()->add(
@@ -126,7 +126,7 @@ class PayzenGateway extends AbstractPayzenGateway
         echo view()
             ->setDirectory(__DIR__ . '/Resources/views')
             ->render('checkout-payment-form', [
-                'order'   => $this->shop->orders()->getItem(),
+                'order'   => $this->shop->orders()->get(),
                 'request' => $this->payzen()->request()
             ]);
     }
@@ -225,7 +225,7 @@ class PayzenGateway extends AbstractPayzenGateway
     /**
      * @inheritDoc
      */
-    public function processPayment(OrderInterface $order): array
+    public function processPayment(Order $order): array
     {
         return [
             'result'   => 'success',
