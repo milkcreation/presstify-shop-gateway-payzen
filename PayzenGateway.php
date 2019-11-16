@@ -49,7 +49,7 @@ class PayzenGateway extends AbstractPayzenGateway
                 'page_action'        => 'PAYMENT',
                 'payment_config'     => 'SINGLE',
                 'site_id'            => $this->get('site_id'),
-                'trans_date'         => $date->format('YmdHis'),
+                'trans_date'         => date('YmdHis', $date->getTimestamp()),
                 'trans_id'           => $this->payzen()->generateTransId($date->getTimestamp()),
                 'version'            => 'V2',
 
