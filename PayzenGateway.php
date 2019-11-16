@@ -2,7 +2,11 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
+use Exception;
+use Carbon\CarbonTimeZone;
+use DateTimeZone;
 use tiFy\Plugins\Shop\Contracts\OrderInterface;
+use DateTime;
 
 class PayzenGateway extends AbstractPayzenGateway
 {
@@ -10,6 +14,8 @@ class PayzenGateway extends AbstractPayzenGateway
      * Traitement des arguments de requête du formulaire de paiement.
      *
      * @return void
+     *
+     * @throws Exception
      */
     public function checkoutPaymentFillRequest(): void
     {
@@ -25,7 +31,13 @@ class PayzenGateway extends AbstractPayzenGateway
                 'error'
             );
         } else {
-            $time = time();
+            if ($tzstring = get_option('timezone_string')) {
+                $date = (new DateTime('now'))->setTimezone(new DateTimeZone($tzstring));
+            } elseif ($offset = get_option('gmt_offset')) {
+                $date = (new DateTime('now'))->setTimezone(CarbonTimeZone::create($offset));
+            } else {
+                $date = (new DateTime('now'))->setTimezone(CarbonTimeZone::create(0));
+            }
 
             $r = $this->payzen()->request();
 
@@ -37,8 +49,8 @@ class PayzenGateway extends AbstractPayzenGateway
                 'page_action'        => 'PAYMENT',
                 'payment_config'     => 'SINGLE',
                 'site_id'            => $this->get('site_id'),
-                'trans_date'         => gmdate('YmdHis', $time),
-                'trans_id'           => $this->payzen()->generateTransId($time),
+                'trans_date'         => $date->format('YmdHis'),
+                'trans_id'           => $this->payzen()->generateTransId($date->getTimestamp()),
                 'version'            => 'V2',
 
                 // Données de commande.
@@ -107,6 +119,7 @@ class PayzenGateway extends AbstractPayzenGateway
             if (in_array($this->get('return_mode'), ['GET', 'POST'])) {
                 $r->set('url_return', route('shop.gateway.payzen.notify'));
             }
+
             $r->parse()->setSignature();
         }
     }
