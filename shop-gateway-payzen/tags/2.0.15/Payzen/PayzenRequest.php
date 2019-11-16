@@ -141,7 +141,7 @@ class PayzenRequest extends PayzenParamsBag
              *
              * @var string
              */
-            'cust_email ' => '',
+            'cust_email' => '',
             /**
              * Référence de l’acheteur sur le site marchand.
              *
