@@ -1,6 +1,6 @@
 <?php
 /**
- * @var tiFy\Plugins\Shop\Contracts\OrderInterface $order
+ * @var tiFy\Plugins\Shop\Contracts\Order $order
  * @var tiFy\Plugins\ShopGatewayPayzen\Payzen\PayzenRequest $request
  */
 ?>

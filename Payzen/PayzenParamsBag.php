@@ -95,9 +95,9 @@ class PayzenParamsBag
     {
         $keys = is_array($key) ? $key : [$key => $value];
 
-        foreach ($keys as $k => $v) :
+        foreach ($keys as $k => $v) {
             Arr::set($this->attributes, $this->mapKey($k), $this->mapValue($v, $k));
-        endforeach;
+        }
 
         return $this;
     }

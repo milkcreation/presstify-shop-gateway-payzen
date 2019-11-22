@@ -49,47 +49,47 @@ class PayzenGateway extends AbstractPayzenGateway
                 //'nb_products',
 
                 // Données de l'acheteur.
-                'cust_email'         => $order->getAddressAttr('email', 'billing'),
+                'cust_email'         => $order->getBilling('email'),
                 'cust_id'            => $order->getCustomerId(),
                 //'cust_title'
                 //'cust_status'
-                'cust_first_name'    => $order->getAddressAttr('first_name', 'billing'),
-                'cust_last_name'     => $order->getAddressAttr('last_name', 'billing'),
+                'cust_first_name'    => $order->getBilling('first_name'),
+                'cust_last_name'     => $order->getBilling('last_name'),
                 //'cust_legal_name'
                 //'cust_cell_phone'
                 'cust_phone'         => str_replace(
                     ['(', '-', ' ', ')'],
                     '',
-                    $order->getAddressAttr('phone', 'billing')
+                    $order->getBilling('phone')
                 ),
                 //'cust_address_number'
-                'cust_address'       => $order->getAddressAttr('address_1', 'billing') .
+                'cust_address'       => $order->getBilling('address_1') .
                     ' ' .
-                    $order->getAddressAttr('address_2', 'billing'),
+                    $order->getBilling('address_2'),
                 //'cust_district'
-                'cust_zip'           => $order->getAddressAttr('postcode', 'billing'),
-                'cust_city'          => $order->getAddressAttr('city', 'billing'),
-                'cust_state'         => $order->getAddressAttr('state', 'billing'),
-                'cust_country'       => $order->getAddressAttr('country', 'billing'),
+                'cust_zip'           => $order->getBilling('postcode'),
+                'cust_city'          => $order->getBilling('city'),
+                'cust_state'         => $order->getBilling('state'),
+                'cust_country'       => $order->getBilling('country', 'billing'),
 
                 // Données de livraison.
-                'ship_to_city'       => $order->getAddressAttr('city', 'shipping'),
-                'ship_to_country'    => $order->getAddressAttr('country', 'shipping'),
+                'ship_to_city'       => $order->getShipping('city'),
+                'ship_to_country'    => $order->getShipping('country'),
                 //'ship_to_district'
-                'ship_to_first_name' => $order->getAddressAttr('first_name', 'shipping'),
-                'ship_to_last_name'  => $order->getAddressAttr('last_name', 'shipping'),
+                'ship_to_first_name' => $order->getShipping('first_name'),
+                'ship_to_last_name'  => $order->getShipping('last_name'),
                 //'ship_to_last_name'
                 //'ship_to_legal_name'
                 'ship_to_phone_num'  => str_replace(
                     ['(', '-', ' ', ')'],
                     '',
-                    $order->getAddressAttr('phone', 'shipping')
+                    $order->getShipping('phone', '')
                 ),
-                'ship_to_state'      => $order->getAddressAttr('state', 'shipping'),
+                'ship_to_state'      => $order->getShipping('state'),
                 //'ship_to_street_number'
-                'ship_to_street'     => $order->getAddressAttr('address_1', 'shipping'),
-                'ship_to_street2'    => $order->getAddressAttr('address_2', 'shipping'),
-                'ship_to_zip'        => $order->getAddressAttr('postcode', 'shipping')
+                'ship_to_street'     => $order->getShipping('address_1'),
+                'ship_to_street2'    => $order->getShipping('address_2'),
+                'ship_to_zip'        => $order->getShipping('postcode')
             ]);
             foreach ([
                 'capture_delay',

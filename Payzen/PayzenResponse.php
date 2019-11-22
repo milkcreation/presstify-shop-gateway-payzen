@@ -50,6 +50,7 @@ class PayzenResponse extends PayzenParamsBag
             case 'signature' :
                 break;
         }
+
         return parent::get($key, $default);
     }
 
@@ -90,6 +91,7 @@ class PayzenResponse extends PayzenParamsBag
                 ? $this->payzen->resolve('transaction')
                 : new PayzenTransaction($this->payzen);
         }
+
         return $this->transaction;
     }
 }

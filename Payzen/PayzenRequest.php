@@ -141,7 +141,7 @@ class PayzenRequest extends PayzenParamsBag
              *
              * @var string
              */
-            'cust_email ' => '',
+            'cust_email' => '',
             /**
              * Référence de l’acheteur sur le site marchand.
              *
@@ -359,6 +359,7 @@ class PayzenRequest extends PayzenParamsBag
                 htmlspecialchars((string)$value, ENT_QUOTES, 'UTF-8')
             );
         }
+
         return $fields;
     }
 
