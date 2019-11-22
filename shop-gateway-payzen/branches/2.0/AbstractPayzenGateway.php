@@ -3,10 +3,7 @@
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
 use tiFy\Contracts\Routing\RouteGroup;
-use tiFy\Plugins\Shop\{
-    Contracts\OrderInterface,
-    Gateways\AbstractGateway
-};
+use tiFy\Plugins\Shop\{Contracts\Order, Gateways\AbstractGateway};
 use tiFy\Plugins\ShopGatewayPayzen\Payzen\Payzen;
 use tiFy\Support\Proxy\Router;
 
@@ -38,12 +35,12 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     /**
      * Vérifie s'il s'agit du pré-traitement de la commande.
      *
-     * @param OrderInterface $order Classe de rappel de la commande
-     * @param string $transaction_id Identifiant de qualification de transaction
+     * @param Order $order Classe de rappel de la commande
+     * @param string|int $transaction_id Identifiant de qualification de transaction
      *
      * @return boolean
      */
-    private function _isNewOrder($order, $transaction_id): bool
+    private function _isNewOrder(Order $order, $transaction_id): bool
     {
         if ($order->hasStatus('order-pending')) {
             return true;
@@ -99,7 +96,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         $r = $this->payzen()->response();
 
         $order_id = (int)$r->get('order_id');
-        $order = $this->shop->orders()->getItem($order_id);
+        $order = $this->shop->order($order_id);
 
         if ($order->getOrderKey() !== $r->get('order_info')) {
             $this->logger('error', sprintf(
@@ -191,11 +188,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     /**
      * Traitement d'une commande non traité.
      *
-     * @param OrderInterface $order Commande
+     * @param Order $order Commande
      *
      * @return void
      */
-    public function handleNewOrder($order): void
+    public function handleNewOrder(Order $order): void
     {
         $r = $this->payzen()->response();
 
