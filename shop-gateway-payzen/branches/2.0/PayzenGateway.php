@@ -2,7 +2,9 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
+use Exception;
 use tiFy\Plugins\Shop\Contracts\Order;
+use tiFy\Support\DateTime;
 
 class PayzenGateway extends AbstractPayzenGateway
 {
@@ -25,7 +27,12 @@ class PayzenGateway extends AbstractPayzenGateway
                 'error'
             );
         } else {
-            $time = time();
+            try {
+                $time = (new DateTime())->getTimestamp();
+            } catch(Exception $e) {
+                date_default_timezone_set("UTC");
+                $time = time();
+            }
 
             $r = $this->payzen()->request();
 
@@ -37,7 +44,7 @@ class PayzenGateway extends AbstractPayzenGateway
                 'page_action'        => 'PAYMENT',
                 'payment_config'     => 'SINGLE',
                 'site_id'            => $this->get('site_id'),
-                'trans_date'         => gmdate('YmdHis', $time),
+                'trans_date'         => date('YmdHis', $time),
                 'trans_id'           => $this->payzen()->generateTransId($time),
                 'version'            => 'V2',
 
@@ -78,7 +85,6 @@ class PayzenGateway extends AbstractPayzenGateway
                 //'ship_to_district'
                 'ship_to_first_name' => $order->getShipping('first_name'),
                 'ship_to_last_name'  => $order->getShipping('last_name'),
-                //'ship_to_last_name'
                 //'ship_to_legal_name'
                 'ship_to_phone_num'  => str_replace(
                     ['(', '-', ' ', ')'],

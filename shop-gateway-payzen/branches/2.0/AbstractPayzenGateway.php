@@ -2,10 +2,11 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
+use Psr\Http\Message\ResponseInterface as HttpResponse;
 use tiFy\Contracts\Routing\RouteGroup;
 use tiFy\Plugins\Shop\{Contracts\Order, Gateways\AbstractGateway};
 use tiFy\Plugins\ShopGatewayPayzen\Payzen\Payzen;
-use tiFy\Support\Proxy\Router;
+use tiFy\Support\Proxy\{Response, Redirect, Router,};
 
 abstract class AbstractPayzenGateway extends AbstractGateway
 {
@@ -47,6 +48,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         } elseif ($order->hasStatus('order-failed') || $order->hasStatus('order-cancelled')) {
             return get_post_meta((int)$order->getId(), 'Transaction ID', true) !== $transaction_id;
         }
+
         return false;
     }
 
@@ -54,12 +56,10 @@ abstract class AbstractPayzenGateway extends AbstractGateway
      * Vérification de la réponse suite au paiement.
      * {@internal La requête est initié par le serveur (plateforme Payzen) ou par le client (navigateur)}
      *
-     * @return void
+     * @return HttpResponse
      */
-    public function checkNotifyResponse(): void
+    public function checkNotifyResponse(): HttpResponse
     {
-        @ob_clean();
-
         $r = $this->payzen()->response()->parseRequest();
 
         $this->logger('info', $this->payzen()->notices('process-start'), $r->all());
@@ -68,18 +68,15 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             $this->logger('error', $this->payzen()->notices('unchecked-sign'));
             $this->logger('info', $this->payzen()->notices('process-end'));
 
-            if ($r->fromServer()) {
+            if (!$r->fromServer()) {
+                $this->shop->notices()->add(__('Echec de paiement.', 'tify'), 'error');
+
+                return Redirect::to($this->shop->functions()->url()->checkoutPage());
             } else {
-                wp_die(
-                    __('La réponse reçue depuis Payzen est invalide: Authentification en échec.', 'tify'),
-                    __('Payzen - Echec d\'authentification', 'tify'),
-                    500
-                );
+                return Response::psr();
             }
         } else {
-            header('HTTP/1.1 200 OK');
-
-            $this->handleNotifyResponse();
+            return $this->handleNotifyResponse();
         }
     }
 
@@ -87,35 +84,36 @@ abstract class AbstractPayzenGateway extends AbstractGateway
      * Traitement de la réponse suite à l'issue du paiement sur la plateforme Payzen.
      * {@internal Mise à jour de la commande, expédition de mail ...}
      *
-     * @return void
+     * @return HttpResponse
      */
-    public function handleNotifyResponse(): void
+    public function handleNotifyResponse(): HttpResponse
     {
         $this->shop->notices()->clear();
 
         $r = $this->payzen()->response();
 
-        $order_id = (int)$r->get('order_id');
-        $order = $this->shop->order($order_id);
+        $order = $this->shop->order((int)$r->get('order_id'));
 
         if ($order->getOrderKey() !== $r->get('order_info')) {
             $this->logger('error', sprintf(
                 __(
-                    'ERREUR: La commande n°%s n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant ' .
-                    'reçu par le paiement.',
+                    'ERREUR: La commande [%s] n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant ' .
+                    'retourné par la plateforme de paiement.',
                     'tify'
                 ), $order->getId()));
 
             $this->logger('info', $this->payzen()->notices('process-end'));
 
             if (!$r->fromServer()) {
-                wp_die(
-                    sprintf(__('ERREUR: La commande n°%s n\'a pas été trouvée.', 'tify'), $order->getId()),
-                    __('Payzen - Commande non trouvée', 'tify'),
-                    500
+                $this->shop->notices()->add(
+                    sprintf(__('ERREUR: La commande [%s] n\'a pas été trouvée.', 'tify'), $order->getId()),
+                    'error'
                 );
+
+                return Redirect::to($this->shop->functions()->url()->checkoutPage());
+            } else {
+                return Response::psr();
             }
-            exit;
         }
 
         if (!$r->fromServer() && $this->payzen()->onTest()) {
@@ -133,11 +131,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         }
 
         if ($this->_isNewOrder($order, $r->transaction()->id())) {
-            $this->handleNewOrder($order);
+            return $this->handleNewOrder($order);
         } else {
             $this->logger('info', sprintf(
-                __('La commande n°%s a déjà été traitée. Seul le résultat de paiement est affiché.', 'tify'),
-                $order_id
+                __('Retour boutique de la commande [%s], déjà été traitée.', 'tify'),
+                $order->getId()
             ));
 
             if ($r->transaction()->isAccepted() && $order->hasStatus($this->orderSuccessStatuses())) {
@@ -145,7 +143,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                 $this->logger('info', $this->payzen()->notices('process-end'));
 
                 if (!$r->fromServer()) {
-                    wp_redirect($this->getReturnUrl($order));
+                    return Redirect::to($this->getReturnUrl($order));
+                } else {
+                    return Response::psr();
                 }
             } elseif (!$r->transaction()->isAccepted() && ($order->hasStatus(['order-failed', 'order-cancelled']))) {
                 $this->logger('error', __('Echec de reconfirmation de paiement.', 'tify'));
@@ -158,30 +158,34 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                             'error'
                         );
                     }
-                    wp_redirect($this->shop->functions()->url()->checkoutPage());
+                    return Redirect::to($this->shop->functions()->url()->checkoutPage());
+                } else {
+                    return Response::psr();
                 }
             } else {
                 $this->logger('error', sprintf(
                     __(
-                        'ERREUR ! Résultat de paiement invalide pour la commande dèja traitée : %s - statut : %s',
+                        'Résultat de paiement invalide pour la commande [%s] déjà traitée >> statut : [%s]',
                         'tify'
-                    ), $r->get('result'), $order->getStatus()));
-
+                    ), $r->get('result'), $order->getStatus()
+                ));
                 $this->logger('info', $this->payzen()->notices('process-end'));
 
                 if (!$r->fromServer()) {
-                    wp_die(
+                    $this->shop->notices()->add(
                         sprintf(
                             __('Erreur: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.',
-                                'tify'),
-                            $order->getId()
+                                'tify'
+                            ), $order->getId()
                         ),
-                        __('Payzen ', 'tify'),
-                        500
+                        'error'
                     );
+
+                    return Redirect::to($this->shop->functions()->url()->checkoutPage());
+                } else {
+                    return Response::psr();
                 }
             }
-            exit;
         }
     }
 
@@ -190,9 +194,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
      *
      * @param Order $order Commande
      *
-     * @return void
+     * @return HttpResponse
      */
-    public function handleNewOrder(Order $order): void
+    public function handleNewOrder(Order $order): HttpResponse
     {
         $r = $this->payzen()->response();
 
@@ -263,7 +267,9 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             $this->logger('info', $this->payzen()->notices('process-end'));
 
             if (!$r->fromServer()) {
-                wp_redirect($this->getReturnUrl($order));
+                return Redirect::to($this->getReturnUrl($order));
+            } else {
+                return Response::instance('', 500)->psr();
             }
         } else {
             if (!$r->transaction()->isCancelled()) {
@@ -287,10 +293,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         'error'
                     );
                 }
-                wp_redirect($this->shop->functions()->url()->checkoutPage());
+                return Redirect::to($this->shop->functions()->url()->checkoutPage());
+            } else {
+                return Response::instance('', 500)->psr();
             }
         }
-        exit;
     }
 
     /**
@@ -313,6 +320,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         if (is_null($this->payzen)) {
             $this->payzen = app()->get('payzen')->setConfig($this->all());
         }
+
         return $this->payzen;
     }
 }

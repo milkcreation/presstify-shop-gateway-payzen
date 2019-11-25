@@ -132,7 +132,7 @@ class PayzenRequest extends PayzenParamsBag
              */
             'nb_products' => 0,
             /**
-             * @todo données dynamiques de commandes
+             * @todo EVOLUTION : Données dynamiques de commandes
              * product_ext_idN & product_labelN & product_amountN & product_typeN & product_refN & product_qtyN
              */
             // Données de l'acheteur.
