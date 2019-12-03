@@ -68,12 +68,14 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             $this->logger('error', $this->payzen()->notices('unchecked-sign'));
             $this->logger('info', $this->payzen()->notices('process-end'));
 
+            $mess = __('Echec de paiement.', 'tify');
+
             if (!$r->fromServer()) {
-                $this->shop->notices()->add(__('Echec de paiement.', 'tify'), 'error');
+                $this->shop->notices()->add($mess, 'error');
 
                 return Redirect::to($this->shop->functions()->url()->checkoutPage());
             } else {
-                return Response::psr();
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
             }
         } else {
             return $this->handleNotifyResponse();
@@ -92,27 +94,38 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
         $r = $this->payzen()->response();
 
-        $order = $this->shop->order((int)$r->get('order_id'));
+        if (!$order = $this->shop->order((int)$r->get('order_id', 0))) {
+            $mess = sprintf(__('ERREUR: La commande [%s] n\'existe pas', 'tify'), $r->get('order_id'));
 
-        if ($order->getOrderKey() !== $r->get('order_info')) {
-            $this->logger('error', sprintf(
-                __(
-                    'ERREUR: La commande [%s] n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant ' .
-                    'retourné par la plateforme de paiement.',
-                    'tify'
-                ), $order->getId()));
+            $this->logger('error', $mess);
 
             $this->logger('info', $this->payzen()->notices('process-end'));
 
             if (!$r->fromServer()) {
-                $this->shop->notices()->add(
-                    sprintf(__('ERREUR: La commande [%s] n\'a pas été trouvée.', 'tify'), $order->getId()),
-                    'error'
-                );
+                $this->shop->notices()->add($mess, 'error');
 
                 return Redirect::to($this->shop->functions()->url()->checkoutPage());
             } else {
-                return Response::psr();
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
+            }
+        } elseif ($order->getOrderKey() !== $r->get('order_info')) {
+            $mess = sprintf(
+                __(
+                    'ERREUR: La commande [%s] n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant ' .
+                    'retourné par la plateforme de paiement.',
+                    'tify'
+                ), $order->getId());
+
+            $this->logger('error', $mess);
+
+            $this->logger('info', $this->payzen()->notices('process-end'));
+
+            if (!$r->fromServer()) {
+                $this->shop->notices()->add($mess, 'error');
+
+                return Redirect::to($this->shop->functions()->url()->checkoutPage());
+            } else {
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
             }
         }
 
@@ -139,30 +152,40 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             ));
 
             if ($r->transaction()->isAccepted() && $order->hasStatus($this->orderSuccessStatuses())) {
-                $this->logger('info', __('Le paiement a été reconfirmé avec succès.', 'tify'));
+                $mess = __('Le paiement a été reconfirmé avec succès.', 'tify');
+
+                $this->logger('info', $mess);
                 $this->logger('info', $this->payzen()->notices('process-end'));
 
                 if (!$r->fromServer()) {
                     return Redirect::to($this->getReturnUrl($order));
                 } else {
-                    return Response::psr();
+                    return Response::instance(json_encode(['success' => true, 'data' => $mess]))->psr();
                 }
             } elseif (!$r->transaction()->isAccepted() && ($order->hasStatus(['order-failed', 'order-cancelled']))) {
-                $this->logger('error', __('Echec de reconfirmation de paiement.', 'tify'));
+                $mess = (!$r->transaction()->isCancelled())
+                    ? __('ERREUR: Le paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify')
+                    : __('ERREUR: Echec de reconfirmation de paiement.', 'tify');
+
+                $this->logger('error', $mess);
                 $this->logger('info', $this->payzen()->notices('process-end'));
 
                 if (!$r->fromServer()) {
                     if (!$r->transaction()->isCancelled()) {
-                        $this->shop->notices()->add(
-                            __('Votre paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify'),
-                            'error'
-                        );
+                        $this->shop->notices()->add($mess, 'error');
                     }
+
                     return Redirect::to($this->shop->functions()->url()->checkoutPage());
                 } else {
-                    return Response::psr();
+                    return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
                 }
             } else {
+                $mess = sprintf(
+                    __('ERREUR: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.',
+                        'tify'
+                    ), $order->getId()
+                );
+
                 $this->logger('error', sprintf(
                     __(
                         'Résultat de paiement invalide pour la commande [%s] déjà traitée >> statut : [%s]',
@@ -172,18 +195,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                 $this->logger('info', $this->payzen()->notices('process-end'));
 
                 if (!$r->fromServer()) {
-                    $this->shop->notices()->add(
-                        sprintf(
-                            __('Erreur: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.',
-                                'tify'
-                            ), $order->getId()
-                        ),
-                        'error'
-                    );
+                    $this->shop->notices()->add($mess, 'error');
 
                     return Redirect::to($this->shop->functions()->url()->checkoutPage());
                 } else {
-                    return Response::psr();
+                    return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
                 }
             }
         }
@@ -216,10 +232,12 @@ abstract class AbstractPayzenGateway extends AbstractGateway
         update_post_meta($order->getId(), 'Card expiry', $expiry);
 
         if ($r->transaction()->isAccepted()) {
-            $this->logger('info', sprintf(
+            $mess = sprintf(
                 __('Paiement réussi, la commande n°%d va être enregistrée', 'tify'),
                 $order->getId()
-            ));
+            );
+
+            $this->logger('info', $mess);
 
             $order->addNote(sprintf(__('Transaction %s.', 'tify'), $r->transaction()->id()));
             $order->paymentComplete($r->transaction()->id());
@@ -269,7 +287,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             if (!$r->fromServer()) {
                 return Redirect::to($this->getReturnUrl($order));
             } else {
-                return Response::instance('', 500)->psr();
+                return Response::instance(json_encode(['success' => true, 'data' => $mess]))->psr();
             }
         } else {
             if (!$r->transaction()->isCancelled()) {
@@ -281,21 +299,18 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             $this->logger('error', $this->payzen()->notices('payment-fail'));
             $this->logger('info', $this->payzen()->notices('process-end'));
 
+            $mess = $r->transaction()->isAbandonned()
+                ? __('Le réglement de votre commande a bien été annulée.', 'tify')
+                : __('Votre paiement n\'a pas pu être validé. Veuillez essayer à nouveau.', 'tify');
+
             if (!$r->fromServer()) {
                 $this->shop->notices()->clear();
 
-                if ($r->transaction()->isAbandonned()) {
-                    $this->shop->notices()
-                        ->add(__('Le réglement de votre commande a bien été annulée.', 'tify'), 'warning');
-                } else {
-                    $this->shop->notices()->add(
-                        __('Votre paiement n\'a pas pu être validé. Veuillez essayer à nouveau.', 'tify'),
-                        'error'
-                    );
-                }
+                $this->shop->notices()->add($mess, $r->transaction()->isAbandonned() ? 'warning' : 'error');
+
                 return Redirect::to($this->shop->functions()->url()->checkoutPage());
             } else {
-                return Response::instance('', 500)->psr();
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
             }
         }
     }
