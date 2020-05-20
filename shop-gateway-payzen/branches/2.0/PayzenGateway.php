@@ -109,7 +109,8 @@ class PayzenGateway extends AbstractPayzenGateway
                 if ($this->has($key)) {
                     $r->set($key, $this->get($key));
                 }
-            };
+            }
+
             if (in_array($this->get('return_mode'), ['GET', 'POST'])) {
                 $r->set('url_return', route('shop.gateway.payzen.notify'));
             }
