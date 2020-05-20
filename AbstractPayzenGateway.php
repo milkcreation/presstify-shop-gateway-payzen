@@ -2,11 +2,11 @@
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
-use Psr\Http\Message\ResponseInterface as HttpResponse;
+use tiFy\Contracts\Http\Response as HttpResponse;
 use tiFy\Contracts\Routing\RouteGroup;
 use tiFy\Plugins\Shop\{Contracts\Order, Gateways\AbstractGateway};
 use tiFy\Plugins\ShopGatewayPayzen\Payzen\Payzen;
-use tiFy\Support\Proxy\{Response, Redirect, Router,};
+use tiFy\Support\Proxy\{Response, Redirect, Router};
 
 abstract class AbstractPayzenGateway extends AbstractGateway
 {
@@ -75,7 +75,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                 return Redirect::to($this->shop->functions()->url()->checkoutPage());
             } else {
-                return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]));
             }
         } else {
             return $this->handleNotifyResponse();
@@ -106,7 +106,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                 return Redirect::to($this->shop->functions()->url()->checkoutPage());
             } else {
-                return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]));
             }
         } elseif ($order->getOrderKey() !== $r->get('order_info')) {
             $mess = sprintf(
@@ -125,7 +125,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                 return Redirect::to($this->shop->functions()->url()->checkoutPage());
             } else {
-                return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]));
             }
         }
 
@@ -160,7 +160,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                 if (!$r->fromServer()) {
                     return Redirect::to($this->getReturnUrl($order));
                 } else {
-                    return Response::instance(json_encode(['success' => true, 'data' => $mess]))->psr();
+                    return Response::instance(json_encode(['success' => true, 'data' => $mess]));
                 }
             } elseif (!$r->transaction()->isAccepted() && ($order->hasStatus(['order-failed', 'order-cancelled']))) {
                 $mess = (!$r->transaction()->isCancelled())
@@ -177,7 +177,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                     return Redirect::to($this->shop->functions()->url()->checkoutPage());
                 } else {
-                    return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
+                    return Response::instance(json_encode(['success' => false, 'data' => $mess]));
                 }
             } else {
                 $mess = sprintf(
@@ -199,7 +199,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                     return Redirect::to($this->shop->functions()->url()->checkoutPage());
                 } else {
-                    return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
+                    return Response::instance(json_encode(['success' => false, 'data' => $mess]));
                 }
             }
         }
@@ -287,7 +287,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             if (!$r->fromServer()) {
                 return Redirect::to($this->getReturnUrl($order));
             } else {
-                return Response::instance(json_encode(['success' => true, 'data' => $mess]))->psr();
+                return Response::instance(json_encode(['success' => true, 'data' => $mess]));
             }
         } else {
             if (!$r->transaction()->isCancelled()) {
@@ -310,7 +310,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                 return Redirect::to($this->shop->functions()->url()->checkoutPage());
             } else {
-                return Response::instance(json_encode(['success' => false, 'data' => $mess]))->psr();
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]));
             }
         }
     }
