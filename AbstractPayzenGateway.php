@@ -1,70 +1,324 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace tiFy\Plugins\ShopGatewayPayzen;
 
-use \PayzenApi;
-use \PayzenRequest;
-use \PayzenResponse;
-use tiFy\Core\Route\Route;
-use tiFy\Plugins\Shop\Gateways\AbstractGateway;
-use tiFy\Plugins\Shop\Orders\OrderInterface;
-use tiFy\Plugins\Shop\Shop;
+use tiFy\Contracts\Http\Response as HttpResponse;
+use tiFy\Contracts\Routing\RouteGroup;
+use tiFy\Plugins\Shop\{Contracts\Order, Gateways\AbstractGateway};
+use tiFy\Plugins\ShopGatewayPayzen\Payzen\Payzen;
+use tiFy\Support\Proxy\{Response, Redirect, Router};
 
 abstract class AbstractPayzenGateway extends AbstractGateway
 {
     /**
-     * Classe de rappel de gestion des paramètres de requête PayZen
-     * @var PayzenRequest
+     * Identifiant de qualification de la plateforme.
+     * @var string
      */
-    protected $request;
+    protected $id = 'payzen';
 
     /**
-     * Classe de rappel de gestion des paramètres de réponse PayZen
-     * @var PayzenResponse
+     * Instance du controleur d'Api Payzen.
+     * @var Payzen
      */
-    protected $response;
+    protected $payzen;
 
     /**
-     * CONSTRUCTEUR
-     *
-     * @param Shop $shop Classe de rappel de la boutique
-     * @param array Liste des attributs de l'article dans le panier
+     * CONSTRUCTEUR.
      *
      * @return void
      */
-    public function __construct($id, $attributes = [], Shop $shop)
+    public function __construct()
     {
-        parent::__construct($id, $attributes, $shop);
-
-        // Initialisation de l'Api Payzen
-        require_once dirname(__FILE__) . '/Api/PayzenRequest.php';
-        $this->request = new PayzenRequest();
-
-        $this->appAddAction('tify_route_register');
+        Router::group('/tify-shop-api/gateway-payzen', function (RouteGroup $router) {
+            $router->get('/', [$this, 'checkNotifyResponse'])->setName('shop.gateway.payzen.notify');
+            $router->post('/', [$this, 'checkNotifyResponse']);
+        });
     }
 
     /**
-     * Déclaration de la route de traitement de la commande par le serveur de paiement
+     * Vérifie s'il s'agit du pré-traitement de la commande.
      *
-     * @param Route $route Classe de rappel de traitement des routes.
+     * @param Order $order Classe de rappel de la commande
+     * @param string|int $transaction_id Identifiant de qualification de transaction
      *
-     * @return void
+     * @return boolean
      */
-    final public function tify_route_register($route)
+    private function _isNewOrder(Order $order, $transaction_id): bool
     {
-        $route->register(
-            'tify-shop-gateway-payzen',
-            [
-                'path' => '/tify-shop-api/gateway-payzen',
-                'cb' => function () {
-                    $this->appAddAction('wp_loaded', 'checkNotifyResponse');
+        if ($order->hasStatus('order-pending')) {
+            return true;
+        } elseif ($order->hasStatus('order-failed') || $order->hasStatus('order-cancelled')) {
+            return get_post_meta((int)$order->getId(), 'Transaction ID', true) !== $transaction_id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Vérification de la réponse suite au paiement.
+     * {@internal La requête est initié par le serveur (plateforme Payzen) ou par le client (navigateur)}
+     *
+     * @return HttpResponse
+     */
+    public function checkNotifyResponse(): HttpResponse
+    {
+        $r = $this->payzen()->response()->parseRequest();
+
+        $this->logger('info', $this->payzen()->notices('process-start'), $r->all());
+
+        if (!$r->checkSignature()) {
+            $this->logger('error', $this->payzen()->notices('unchecked-sign'));
+            $this->logger('info', $this->payzen()->notices('process-end'));
+
+            $mess = __('Echec de paiement.', 'tify');
+
+            if (!$r->fromServer()) {
+                $this->shop->notices()->add($mess, 'error');
+
+                return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
+            } else {
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]));
+            }
+        } else {
+            return $this->handleNotifyResponse();
+        }
+    }
+
+    /**
+     * Traitement de la réponse suite à l'issue du paiement sur la plateforme Payzen.
+     * {@internal Mise à jour de la commande, expédition de mail ...}
+     *
+     * @return HttpResponse
+     */
+    public function handleNotifyResponse(): HttpResponse
+    {
+        $this->shop->notices()->clear();
+
+        $r = $this->payzen()->response();
+
+        if (!$order = $this->shop->order((int)$r->get('order_id', 0))) {
+            $mess = sprintf(__('ERREUR: La commande [%s] n\'existe pas', 'tify'), $r->get('order_id'));
+
+            $this->logger('error', $mess);
+
+            $this->logger('info', $this->payzen()->notices('process-end'));
+
+            if (!$r->fromServer()) {
+                $this->shop->notices()->add($mess, 'error');
+
+                return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
+            } else {
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]));
+            }
+        } elseif ($order->getOrderKey() !== $r->get('order_info')) {
+            $mess = sprintf(
+                __(
+                    'ERREUR: La commande [%s] n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant ' .
+                    'retourné par la plateforme de paiement.',
+                    'tify'
+                ), $order->getId());
+
+            $this->logger('error', $mess);
+
+            $this->logger('info', $this->payzen()->notices('process-end'));
+
+            if (!$r->fromServer()) {
+                $this->shop->notices()->add($mess, 'error');
+
+                return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
+            } else {
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]));
+            }
+        }
+
+        if (!$r->fromServer() && $this->payzen()->onTest()) {
+            $msg = __(
+                '<p><u>PASSAGE EN PRODUCTION</u></p>' .
+                'Si vous souhaitez obtenir des informations pour régler votre boutique en mode production,' .
+                ' veuillez consulter l\'url suivante: ',
+                'tify'
+            );
+            $msg .= '<a href="https://secure.payzen.eu/html/faq/prod" target="_blank">' .
+                'https://secure.payzen.eu/html/faq/prod' .
+                '</a>';
+
+            $this->shop->notices()->add($msg);
+        }
+
+        if ($this->_isNewOrder($order, $r->transaction()->id())) {
+            return $this->handleNewOrder($order);
+        } else {
+            $this->logger('info', sprintf(
+                __('Retour boutique de la commande [%s], déjà été traitée.', 'tify'),
+                $order->getId()
+            ));
+
+            if ($r->transaction()->isAccepted() && $order->hasStatus($this->orderSuccessStatuses())) {
+                $mess = __('Le paiement a été reconfirmé avec succès.', 'tify');
+
+                $this->logger('info', $mess);
+                $this->logger('info', $this->payzen()->notices('process-end'));
+
+                if (!$r->fromServer()) {
+                    return Redirect::to($this->getReturnUrl($order));
+                } else {
+                    return Response::instance(json_encode(['success' => true, 'data' => $mess]));
                 }
-            ]
-        );
+            } elseif (!$r->transaction()->isAccepted() && ($order->hasStatus(['order-failed', 'order-cancelled']))) {
+                $mess = (!$r->transaction()->isCancelled())
+                    ? __('ERREUR: Le paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify')
+                    : __('ERREUR: Echec de reconfirmation de paiement.', 'tify');
+
+                $this->logger('error', $mess);
+                $this->logger('info', $this->payzen()->notices('process-end'));
+
+                if (!$r->fromServer()) {
+                    if (!$r->transaction()->isCancelled()) {
+                        $this->shop->notices()->add($mess, 'error');
+                    }
+
+                    return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
+                } else {
+                    return Response::instance(json_encode(['success' => false, 'data' => $mess]));
+                }
+            } else {
+                $mess = sprintf(
+                    __('ERREUR: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.',
+                        'tify'
+                    ), $order->getId()
+                );
+
+                $this->logger('error', sprintf(
+                    __(
+                        'Résultat de paiement invalide pour la commande [%s] déjà traitée >> statut : [%s]',
+                        'tify'
+                    ), $r->get('result'), $order->getStatus()
+                ));
+                $this->logger('info', $this->payzen()->notices('process-end'));
+
+                if (!$r->fromServer()) {
+                    $this->shop->notices()->add($mess, 'error');
+
+                    return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
+                } else {
+                    return Response::instance(json_encode(['success' => false, 'data' => $mess]));
+                }
+            }
+        }
     }
 
     /**
-     * Liste des statuts de commande associés au paiement réussi
+     * Traitement d'une commande non traité.
+     *
+     * @param Order $order Commande
+     *
+     * @return HttpResponse
+     */
+    public function handleNewOrder(Order $order): HttpResponse
+    {
+        $r = $this->payzen()->response();
+
+        delete_post_meta($order->getId(), 'Transaction ID');
+        delete_post_meta($order->getId(), 'Card number');
+        delete_post_meta($order->getId(), 'Payment mean');
+        delete_post_meta($order->getId(), 'Card expiry');
+
+        update_post_meta($order->getId(), 'Transaction ID', $r->transaction()->id());
+        update_post_meta($order->getId(), 'Card number', $r->get('card_number'));
+        update_post_meta($order->getId(), 'Payment mean', $r->get('card_brand'));
+
+        $expiry = str_pad((string)$r->get('expiry_month'), 2, '0', STR_PAD_LEFT) . '/' . $r->get('expiry_year');
+        if (!$r->get('expiry_month')) {
+            $expiry = '';
+        }
+        update_post_meta($order->getId(), 'Card expiry', $expiry);
+
+        if ($r->transaction()->isAccepted()) {
+            $mess = sprintf(
+                __('Paiement réussi, la commande n°%d va être enregistrée', 'tify'),
+                $order->getId()
+            );
+
+            $this->logger('info', $mess);
+
+            $order->addNote(sprintf(__('Transaction %s.', 'tify'), $r->transaction()->id()));
+            $order->paymentComplete($r->transaction()->id());
+
+            $this->logger('info', $this->payzen()->notices('payment-ok'));
+
+            if (!$r->fromServer()) {
+                $this->logger('warning', sprintf(
+                    __(
+                        'Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé ' .
+                        'avec succès, grâce à un traitement de l\'url côté client.' .
+                        'Utilisez plutôt l\'url de notification instantanée %s',
+                        'tify'
+                    ),
+                    Router::url('shop.gateway.payzen.notify', [], true)
+                ));
+
+                if ($this->payzen()->onTest()) {
+                    $warning = sprintf(
+                        __(
+                            'La notification automatique (échange directe entre la plateforme de paiement ' .
+                            'et votre boutique) ne semble pas être opérante. Veuillez-vous assurer vous de la ' .
+                            'configuration depuis l\'url suivante %s',
+                            'tify'
+                        ),
+                        'https://secure.payzen.eu/vads-merchant/'
+                    );
+                    $warning .= '<br />';
+                    $warning .= sprintf(
+                        __(
+                            'Pour comprendre le problème veuillez consulter la documentation sur' .
+                            'le site de la solution :%s',
+                            'tify'
+                        ),
+                        '<a href="https://payzen.io/fr-FR/form-payment/quick-start-guide/' .
+                        'proceder-a-la-phase-de-test.html" target="_blank"' .
+                        '>' .
+                        'https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html' .
+                        '</a>'
+                    );
+                    $this->shop->notices()->add($warning, 'error');
+                }
+            }
+
+            $this->logger('info', $this->payzen()->notices('process-end'));
+
+            if (!$r->fromServer()) {
+                return Redirect::to($this->getReturnUrl($order));
+            } else {
+                return Response::instance(json_encode(['success' => true, 'data' => $mess]));
+            }
+        } else {
+            if (!$r->transaction()->isCancelled()) {
+                $order->addNote(sprintf(__('Transaction %s.', 'tify'), $r->transaction()->id()));
+            }
+
+            $order->updateStatus('order-failed');
+
+            $this->logger('error', $this->payzen()->notices('payment-fail'));
+            $this->logger('info', $this->payzen()->notices('process-end'));
+
+            $mess = $r->transaction()->isAbandonned()
+                ? __('Le réglement de votre commande a bien été annulée.', 'tify')
+                : __('Votre paiement n\'a pas pu être validé. Veuillez essayer à nouveau.', 'tify');
+
+            if (!$r->fromServer()) {
+                $this->shop->notices()->clear();
+
+                $this->shop->notices()->add($mess, $r->transaction()->isAbandonned() ? 'warning' : 'error');
+
+                return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
+            } else {
+                return Response::instance(json_encode(['success' => false, 'data' => $mess]));
+            }
+        }
+    }
+
+    /**
+     * Liste des statuts de commande associés au paiement réussi.
      *
      * @return array
      */
@@ -74,353 +328,16 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     }
 
     /**
-     * Vérification de la réponse suite au paiement.
+     * Récupération de l'instance du controleur d'API Payzen.
      *
-     * @return void
+     * @return Payzen
      */
-    public function checkNotifyResponse()
+    public function payzen(): ?Payzen
     {
-        @ob_clean();
+        if (is_null($this->payzen)) {
+            $this->payzen = app()->get('payzen')->setConfig($this->all());
+        }
 
-        $raw_response = $this->appRequest($this->get('return_mode', ''))->all([]);
-
-        require_once dirname(__FILE__) . '/Api/PayzenResponse.php';
-        $this->response = new PayzenResponse(
-            $raw_response,
-            $this->get('ctx_mode'),
-            $this->get('key_test'),
-            $this->get('key_prod')
-        );
-
-        $from_server = $this->response->get('hash') != null;
-
-        if ($from_server) :
-            $this->log(
-                __('Données de réponse du processus de traitement côté serveur reçues.', 'tify'),
-                'info',
-                $raw_response
-            );
-        endif;
-
-        if (! $this->response->isAuthentified()) :
-            $this->log(
-                __('La réponse reçue depuis Payzen est invalide: Authentification en échec', 'tify'),
-                'error'
-            );
-
-            if ($from_server) :
-                $this->log(
-                    __('Fin du processus de traitement côté serveur', 'tify'),
-                    'info'
-                );
-                die($this->response->getOutputForPlatform('auth_fail'));
-            else :
-                $this->log(
-                    __('Fin du processus de traitement côté client', 'tify'),
-                    'info'
-                );
-                wp_die(
-                    __('La réponse reçue depuis Payzen est invalide: Authentification en échec', 'tify'),
-                    __('Payzen - Echec d\'authentification', 'tify'),
-                    500
-                );
-            endif;
-        else :
-            header('HTTP/1.1 200 OK');
-
-            $this->handleNotifyResponse();
-        endif;
-    }
-
-    /**
-     * Traitement de la réponse suite à l'issue du paiement sur la plateforme Payzen.
-     * @internal Mise à jour de la commande, expédition de mail ...
-     *
-     * @return void
-     */
-    public function handleNotifyResponse()
-    {
-        $this->notices()->clear();
-
-        $order_id = (int) $this->response->get('order_id');
-        $from_server = $this->response->get('hash') != null;
-
-        $order = $this->orders()->get($order_id);
-
-        if ($order->getOrderKey() !== $this->response->get('order_info')) :
-            $this->log(
-                sprintf(
-                    __('ERREUR: La commande n°%s n\'a pas été trouvée ou la clé ne correspond pas à l\'identifiant reçu par le paiement.', 'tify'),
-                    $order->getId()
-                ),
-                'error'
-            );
-
-            if ($from_server) :
-                $this->log(
-                    __('Fin du processus de traitement côté serveur', 'tify'),
-                    'info'
-                );
-
-                die($this->response->getOutputForPlatform('order_not_found'));
-            else :
-                $this->log(
-                    __('Fin du processus de traitement côté client', 'tify'),
-                    'info'
-                );
-
-                wp_die(
-                    sprintf(
-                        __('ERREUR: La commande n°%s n\'a pas été trouvée.', 'tify'),
-                        $order->getId()
-                    ),
-                    __('Payzen - Commande non trouvée', 'tify'),
-                    500
-                );
-            endif;
-        endif;
-
-        if ($this->get('ctx_mode') === 'TEST') :
-            $msg  = __('<p><u>PASSAGE EN PRODUCTION</u></p>Si vous souhaitez obtenir des informations pour régler votre boutique en mode production, veuillez consulter l\'url suivante: ', 'tify');
-            $msg .= '<a href="https://secure.payzen.eu/html/faq/prod" target="_blank">https://secure.payzen.eu/html/faq/prod</a>';
-
-            $this->notices()->add($msg);
-        endif;
-
-        // Url de commande pour permettre, en cas d'échec, de soumettre à nouveau le paiement.
-        $error_url = $this->functions()->url()->checkoutPage();
-
-        if ($this->isNewOrder($order, $this->response->get('trans_id'))) :
-            \delete_post_meta($order->getId(), 'Transaction ID');
-            \delete_post_meta($order->getId(), 'Card number');
-            \delete_post_meta($order->getId(), 'Payment mean');
-            \delete_post_meta($order->getId(), 'Card expiry');
-
-            \update_post_meta($order->getId(), 'Transaction ID', $this->response->get('trans_id'));
-            \update_post_meta($order->getId(), 'Card number', $this->response->get('card_number'));
-            \update_post_meta($order->getId(), 'Payment mean', $this->response->get('card_brand'));
-
-            $expiry = str_pad($this->response->get('expiry_month'), 2, '0', STR_PAD_LEFT) . '/' . $this->response->get('expiry_year');
-            if (! $this->response->get('expiry_month')) :
-                $expiry = '';
-            endif;
-            \update_post_meta($order->getId(), 'Card expiry', $expiry);
-
-            $note = $this->response->getCompleteMessage("\n");
-
-            if ($this->response->isAcceptedPayment()) :
-                $this->log(
-                    sprintf(
-                        __('Paiement réussi, la commande n°%d va être enregistrée', 'tify'),
-                        $order_id
-                    ),
-                    'info'
-                );
-
-                $note .= "\n";
-                $note .= sprintf(__('Transaction %s.', 'tify'), $this->response->get('trans_id'));
-                $order->addNote($note);
-                $order->paymentComplete();
-
-                if ($from_server) :
-                    $this->log(
-                        __('Le processus de paiement lancé par le serveur, s\'est terminée avec succès.', 'tify'),
-                        'info'
-                    );
-                    $this->log(
-                        __('Fin du processus de traitement côté serveur', 'tify'),
-                        'info'
-                    );
-
-                    die ($this->response->getOutputForPlatform('payment_ok'));
-                else :
-                    $this->log(
-                        __('Attention ! L\'appel côté serveur n\'est pas actif. Le paiement s\'est terminé avec succès, grâce à un traitement de l\'url côté client. Utilisez l\'url de notification instantanée', 'tify'),
-                        'warning'
-                    );
-
-                    if ($this->get('ctx_mode') === 'TEST') :
-                        $ipn_url_warn = sprintf(
-                            __('La notification automatique (échange directe entre la plateforme de paiement et votre boutique) ne semble pas être opérante. Veuillez-vous assurer vous de la configuration depuis l\'url suivante %s', 'tify'),
-                            'https://secure.payzen.eu/vads-merchant/'
-                        );
-                        $ipn_url_warn .= '<br />';
-                        $ipn_url_warn .= sprintf(
-                            __('Pour comprendre le problème veuillez consulter la documentation sur le site de la solution :%s', 'tify'),
-                            '<a href="https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html" target="_blank">' .
-                                'https://payzen.io/fr-FR/form-payment/quick-start-guide/proceder-a-la-phase-de-test.html' .
-                            '</a>'
-                        );
-
-                        $this->notices()->add($ipn_url_warn, 'error');
-                    endif;
-
-                    $this->log(
-                        __('Fin du processus de traitement côté client', 'tify'),
-                        'info'
-                    );
-
-                    \wp_redirect($this->getReturnUrl($order));
-                    die();
-                endif;
-            else :
-                if (! $this->response->isCancelledPayment()) :
-                    $note .= "\n";
-                    $note .= sprintf(
-                        __('Transaction %s.', 'tify'),
-                        $this->response->get('trans_id')
-                    );
-                endif;
-                $order->addNote($note);
-
-                // @todo
-                $order->update_status('failed');
-
-                $this->log(
-                    sprintf(
-                        __('Paiement échoué ou annulé. %s', 'tify'),
-                        $this->response->getLogMessage()
-                    ),
-                    'error'
-                );
-
-                if ($from_server) :
-                    $this->log(
-                        __('Fin du processus de traitement côté serveur', 'tify'),
-                        'info'
-                    );
-
-                    die($this->response->getOutputForPlatform('payment_ko'));
-                else :
-                    if (! $this->response->isCancelledPayment()) {
-                        $this->notices()->add(
-                            __('Votre paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify'),
-                            'error'
-                        );
-                    }
-
-                    $this->log(
-                        __('Fin du processus de traitement côté client', 'tify'),
-                        'info'
-                    );
-
-                    \wp_redirect($error_url);
-                    die();
-                endif;
-            endif;
-        else :
-            $this->log(
-                sprintf(
-                    __('La commande n°%s a déjà été traitée. Seul le résultat de paiement est affiché.', 'tify'),
-                    $order_id
-                ),
-                'info'
-            );
-            if ($this->response->isAcceptedPayment() && $order->hasStatus($this->orderSuccessStatuses())) :
-                $this->log(
-                    __('Le paiement a été reconfirmé avec succès.', 'tify'),
-                    'info'
-                );
-
-                if ($from_server) :
-                    $this->log(
-                        __('Fin du processus de traitement côté serveur', 'tify'),
-                        'info'
-                    );
-
-                    die($this->response->getOutputForPlatform('payment_ok_already_done'));
-                else :
-                    $this->log(
-                        __('Fin du processus de traitement côté client', 'tify'),
-                        'info'
-                    );
-
-                    \wp_redirect($this->getReturnUrl($order));
-                    die();
-                endif;
-            elseif (! $this->response->isAcceptedPayment() && ($order->hasStatus(['order-failed', 'order-cancelled']))) :
-                $this->log(
-                    __('Echec de reconfirmation de paiement.', 'tify'),
-                    'error'
-                );
-
-                if ($from_server) :
-                    $this->log(
-                        __('Fin du processus de traitement côté serveur', 'tify'),
-                        'info'
-                    );
-
-                    die($this->response->getOutputForPlatform('payment_ko_already_done'));
-                else :
-                    $this->log(
-                        __('Fin du processus de traitement côté client', 'tify'),
-                        'info'
-                    );
-
-                    if (! $this->response->isCancelledPayment()) :
-                        $this->notices()->add(
-                            __('Votre paiement n\'a pas été accepté. Veuillez essayer à nouveau.', 'tify'),
-                            'error'
-                        );
-                    endif;
-
-                    wp_redirect($error_url);
-                    die();
-                endif;
-            else :
-                $this->log(
-                    sprintf(
-                        __('ERREUR ! Résultat de paiement invalide pour la commande dèja traitée : %s - statut : %s', 'tify'),
-                        $this->response->get('result'),
-                        $order->getStatus()
-                    ),
-                    'error'
-                );
-
-                if ($from_server) :
-                    $this->log(
-                        __('Fin du processus de traitement côté serveur', 'tify'),
-                        'info'
-                    );
-
-                    die($this->response->getOutputForPlatform('payment_ko_on_order_ok'));
-                else :
-                    $this->log(
-                        __('Fin du processus de traitement côté client', 'tify'),
-                        'info'
-                    );
-
-                    wp_die(
-                        sprintf(
-                            __('Erreur: Le code de paiement reçu ne semble pas correspondre à la commande n°%s.', 'tify'),
-                            $order_id
-                        ),
-                        __('Payzen ', 'tify'),
-                        500
-                    );
-                endif;
-            endif;
-        endif;
-    }
-
-    /**
-     * Vérifie s'il s'agit du pré-traitement de la commande.
-     *
-     * @param OrderInterface $order Classe de rappel de la commande
-     * @param string $transaction_id Identifiant de qualification de transaction
-     *
-     * @return bool
-     */
-    private function isNewOrder($order, $transaction_id)
-    {
-        if ($order->hasStatus('order-pending')) :
-            return true;
-        endif;
-
-        if ($order->hasStatus('order-failed') || $order->hasStatus('order-cancelled')) :
-            return get_post_meta((int) $order->getId(), 'Transaction ID', true) !== $transaction_id;
-        endif;
-
-        return false;
+        return $this->payzen;
     }
 }
