@@ -23,9 +23,11 @@ abstract class AbstractPayzenGateway extends AbstractGateway
     protected $payzen;
 
     /**
-     * @inheritDoc
+     * CONSTRUCTEUR.
+     *
+     * @return void
      */
-    public function boot(): void
+    public function __construct()
     {
         Router::group('/tify-shop-api/gateway-payzen', function (RouteGroup $router) {
             $router->get('/', [$this, 'checkNotifyResponse'])->setName('shop.gateway.payzen.notify');
@@ -73,7 +75,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             if (!$r->fromServer()) {
                 $this->shop->notices()->add($mess, 'error');
 
-                return Redirect::to($this->shop->functions()->url()->checkoutPage());
+                return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
             } else {
                 return Response::instance(json_encode(['success' => false, 'data' => $mess]));
             }
@@ -104,7 +106,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             if (!$r->fromServer()) {
                 $this->shop->notices()->add($mess, 'error');
 
-                return Redirect::to($this->shop->functions()->url()->checkoutPage());
+                return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
             } else {
                 return Response::instance(json_encode(['success' => false, 'data' => $mess]));
             }
@@ -123,7 +125,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
             if (!$r->fromServer()) {
                 $this->shop->notices()->add($mess, 'error');
 
-                return Redirect::to($this->shop->functions()->url()->checkoutPage());
+                return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
             } else {
                 return Response::instance(json_encode(['success' => false, 'data' => $mess]));
             }
@@ -175,7 +177,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         $this->shop->notices()->add($mess, 'error');
                     }
 
-                    return Redirect::to($this->shop->functions()->url()->checkoutPage());
+                    return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
                 } else {
                     return Response::instance(json_encode(['success' => false, 'data' => $mess]));
                 }
@@ -197,7 +199,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                 if (!$r->fromServer()) {
                     $this->shop->notices()->add($mess, 'error');
 
-                    return Redirect::to($this->shop->functions()->url()->checkoutPage());
+                    return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
                 } else {
                     return Response::instance(json_encode(['success' => false, 'data' => $mess]));
                 }
@@ -252,7 +254,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
                         'Utilisez plutôt l\'url de notification instantanée %s',
                         'tify'
                     ),
-                    Router::url('shop.gateway.payzen.notify')
+                    Router::url('shop.gateway.payzen.notify', [], true)
                 ));
 
                 if ($this->payzen()->onTest()) {
@@ -308,7 +310,7 @@ abstract class AbstractPayzenGateway extends AbstractGateway
 
                 $this->shop->notices()->add($mess, $r->transaction()->isAbandonned() ? 'warning' : 'error');
 
-                return Redirect::to($this->shop->functions()->url()->checkoutPage());
+                return Redirect::to($this->shop->functions()->page()->checkoutPageUrl());
             } else {
                 return Response::instance(json_encode(['success' => false, 'data' => $mess]));
             }
