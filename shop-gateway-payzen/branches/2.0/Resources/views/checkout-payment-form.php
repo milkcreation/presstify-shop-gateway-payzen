@@ -14,7 +14,7 @@
         <input type="submit" class="button-alt" id="submit_payzen_payment_form" value="<?php _e('Envoyer', 'tify'); ?>" />
     </form>
 </div>
-
+<?php /* * / ?>
 <script type="text/javascript">
     function payzen_submit_form() {
         document.getElementById('submit_payzen_payment_form').click();
@@ -26,3 +26,4 @@
         window.attachEvent('onload', payzen_submit_form);
     }
 </script>
+<?php /**/

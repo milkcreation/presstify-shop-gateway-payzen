@@ -24,7 +24,7 @@ class ShopGatewayPayzenServiceProvider extends ServiceProvider
         'payzen.request',
         'payzen.response',
         'payzen.transaction',
-        'shop.gateway.payzen'
+        'shop.gateway.payzen',
     ];
 
     /**

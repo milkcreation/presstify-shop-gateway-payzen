@@ -4,7 +4,7 @@ namespace tiFy\Plugins\ShopGatewayPayzen;
 
 use Exception;
 use tiFy\Plugins\Shop\Contracts\Order;
-use tiFy\Support\DateTime;
+use tiFy\Support\{DateTime, Proxy\Router};
 
 class PayzenGateway extends AbstractPayzenGateway
 {
@@ -112,8 +112,12 @@ class PayzenGateway extends AbstractPayzenGateway
             }
 
             if (in_array($this->get('return_mode'), ['GET', 'POST'])) {
-                $r->set('url_return', route('shop.gateway.payzen.notify'));
+                $r->set('url_return', Router::url('shop.gateway.payzen.notify', [], true));
             }
+
+            // IPN
+            $r->set('url_check', Router::url('shop.gateway.payzen.notify', [], true));
+
             $r->parse()->setSignature();
         }
     }
