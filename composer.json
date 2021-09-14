@@ -11,20 +11,13 @@
     "gateway",
     "payzen"
   ],
-  "homepage": "https://svn.tigreblanc.fr/presstify-plugins/shop-gateway-payzen",
-  "time": "2020-06-19",
-  "license": "proprietary",
+  "homepage": "https://github.com/milkcreation/presstify-shop-gateway-payzen.git",
+  "time": "2021-09-14",
   "authors": [
     {
       "name": "Jordy Manner",
       "email": "jordy.manner@milkcreation.fr",
       "role": "Developper"
-    }
-  ],
-  "repositories": [
-    {
-      "type": "composer",
-      "url": "http://composer.tigreblanc.fr/presstify/"
     }
   ],
   "require": {
